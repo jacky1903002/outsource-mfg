@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>委外廠商製作進度追蹤表</title>
+  <style>
+    :root {
+      --bg-color: #0b1329;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 16px 24px;
+    }
+
+    /* 頂部標頭 */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .badge-pro {
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .user-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* 工作表頁籤列 */
+    .sheet-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #0f172a;
+      padding: 6px 12px;
+      border-radius: 8px 8px 0 0;
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+
+    .sheet-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      user-select: none;
+    }
+
+    .sheet-tab.active {
+      background: #0284c7;
+      color: #fff;
+      border-color: #38bdf8;
+    }
+
+    .sheet-close {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      cursor: pointer;
+    }
+    .sheet-close:hover { color: #f87171; opacity: 1; }
+
+    /* 主要內容區 */
+    .tab-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      background-color: var(--card-bg);
+      border-radius: 0 0 8px 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary { background-color: #0284c7; color: #fff; border: none; }
+    .btn-primary:hover { background-color: #0369a1; color: #fff; }
+    .btn-danger { background-color: var(--danger); color: #fff; border: none; }
+
+    /* 表格內部滾動區域與固定表頭 */
+    .table-scroll-container {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+
+    th {
+      background-color: #0f172a;
+      color: #94a3b8;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+
+    tr:hover td { background-color: rgba(255, 255, 255, 0.03); }
+    .text-center { text-align: center; }
+    .highlight-item { font-weight: bold; color: var(--accent); }
+    .editable { cursor: pointer; }
+    .editable:hover { outline: 1px dashed var(--accent); }
+
+    /* 登入彈窗 Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      border-radius: 8px;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal input {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: #0f172a;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <div class="brand-title">
+        <div>
+          <span class="badge-pro">OUTSOURCING TRACKER</span>
+          <h1>委外廠商製作進度追蹤</h1>
+        </div>
+      </div>
+      <div class="user-control">
+        <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">權限：訪客 (唯讀)</span>
+        <button id="auth-btn" class="btn btn-primary" onclick="toggleAuth()">管理員登入</button>
+      </div>
+    </header>
+
+    <!-- 多工作表 (列表) 分頁列 -->
+    <div class="sheet-bar">
+      <div id="sheets-container" style="display: flex; gap: 6px;"></div>
+      <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="addSheet()">+ 新增列表</button>
+      <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="copySheet()">複製列表</button>
+    </div>
+
+    <div class="tab-content">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="addRow()">新增項目</button>
+        <button class="btn" onclick="addColumn()">新增欄位</button>
+      </div>
+
+      <div class="table-scroll-container">
+        <table>
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登入 Modal -->
+  <div id="login-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3 style="margin: 0; color: var(--accent);">管理員登入</h3>
+      <input type="text" id="username" placeholder="帳號 (預設: admin)">
+      <input type="password" id="password" placeholder="密碼 (預設: 1234)">
+      <button class="btn btn-primary" onclick="login()">登入</button>
+      <button class="btn" onclick="closeLoginModal()">取消</button>
+    </div>
+  </div>
+
+  <script>
+    // 預設欄位定義與初始化資料
+    const defaultColumns = [
+      { key: "no", label: "No." },
+      { key: "img", label: "示意圖" },
+      { key: "itemNo", label: "品號" },
+      { key: "itemName", label: "品名" },
+      { key: "vendor", label: "廠商" },
+      { key: "note1", label: "加工或備註" },
+      { key: "note2", label: "二次加工備註" },
+      { key: "reason", label: "未入庫原因" },
+      { key: "status", label: "發單/追蹤狀況" }
+    ];
+
+    const initialData = [
+      { no: 1, img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "260", note1: "50001-111", note2: "", reason: "", status: "" },
+      { no: 2, img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" },
+      { no: 3, img: "📐", itemNo: "14967-VWNE001", itemName: "FVSE-0032-4", vendor: "260", note1: "50001-113", note2: "", reason: "", status: "" }
+    ];
+
+    let isLoggedIn = false;
+    let workbook = JSON.parse(localStorage.getItem('outsourcing_workbook')) || [
+      { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData },
+      { id: "sheet_2", name: "採購追蹤項目", columns: defaultColumns, data: [] }
+    ];
+    let activeSheetId = localStorage.getItem('outsourcing_active_sheet') || workbook[0].id;
+
+    function getActiveSheet() {
+      return workbook.find(s => s.id === activeSheetId) || workbook[0];
+    }
+
+    function checkAuth() {
+      if (!isLoggedIn) {
+        alert("權限不足：請先點擊右上角「管理員登入」進行登入！");
+        return false;
+      }
+      return true;
+    }
+
+    /* 登入控制 */
+    function toggleAuth() {
+      if (isLoggedIn) {
+        isLoggedIn = false;
+        document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
+        document.getElementById('auth-btn').innerText = "管理員登入";
+        alert("已成功登出");
+      } else {
+        document.getElementById('login-modal').style.display = 'flex';
+      }
+    }
+
+    function closeLoginModal() {
+      document.getElementById('login-modal').style.display = 'none';
+    }
+
+    function login() {
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
+      if ((user === 'admin' && pass === '1234') || (user === '' && pass === '')) {
+        isLoggedIn = true;
+        document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
+        document.getElementById('auth-btn').innerText = "登出";
+        closeLoginModal();
+      } else {
+        alert("帳號或密碼錯誤！(預設: admin / 1234)");
+      }
+    }
+
+    /* 渲染多列表(工作表)分頁 */
+    function renderSheets() {
+      const container = document.getElementById('sheets-container');
+      container.innerHTML = '';
+      workbook.forEach(sheet => {
+        const tab = document.createElement('div');
+        tab.className = `sheet-tab ${sheet.id === activeSheetId ? 'active' : ''}`;
+        tab.innerHTML = `
+          <span ondblclick="renameSheet('${sheet.id}')">${sheet.name}</span>
+          ${workbook.length > 1 ? `<span class="sheet-close" onclick="deleteSheet('${sheet.id}', event)">✕</span>` : ''}
+        `;
+        tab.onclick = (e) => {
+          if (e.target.classList.contains('sheet-close')) return;
+          activeSheetId = sheet.id;
+          localStorage.setItem('outsourcing_active_sheet', activeSheetId);
+          renderSheets();
+          renderTable();
+        };
+        container.appendChild(tab);
+      });
+    }
+
+    function addSheet() {
+      if (!checkAuth()) return;
+      const newId = 'sheet_' + Date.now();
+      const newSheet = {
+        id: newId,
+        name: `新列表 ${workbook.length + 1}`,
+        columns: JSON.parse(JSON.stringify(defaultColumns)),
+        data: []
+      };
+      workbook.push(newSheet);
+      activeSheetId = newId;
+      saveData();
+      renderSheets();
+      renderTable();
+    }
+
+    function copySheet() {
+      if (!checkAuth()) return;
+      const current = getActiveSheet();
+      const newId = 'sheet_' + Date.now();
+      workbook.push({
+        id: newId,
+        name: `${current.name} (副本)`,
+        columns: JSON.parse(JSON.stringify(current.columns)),
+        data: JSON.parse(JSON.stringify(current.data))
+      });
+      activeSheetId = newId;
+      saveData();
+      renderSheets();
+      renderTable();
+    }
+
+    function renameSheet(sheetId) {
+      if (!checkAuth()) return;
+      const sheet = workbook.find(s => s.id === sheetId);
+      const newName = prompt("請輸入列表名稱：", sheet.name);
+      if (newName) {
+        sheet.name = newName.trim();
+        saveData();
+        renderSheets();
+      }
+    }
+
+    function deleteSheet(sheetId, e) {
+      e.stopPropagation();
+      if (!checkAuth()) return;
+      if (workbook.length <= 1) return;
+      if (confirm("確定要刪除此列表嗎？")) {
+        workbook = workbook.filter(s => s.id !== sheetId);
+        if (activeSheetId === sheetId) activeSheetId = workbook[0].id;
+        saveData();
+        renderSheets();
+        renderTable();
+      }
+    }
+
+    /* 渲染表格數據 */
+    function renderTable() {
+      const sheet = getActiveSheet();
+      const thead = document.getElementById('table-head');
+      const tbody = document.getElementById('table-body');
+
+      let headHtml = '<tr>';
+      sheet.columns.forEach(col => {
+        headHtml += `<th>${col.label}</th>`;
+      });
+      headHtml += `<th class="text-center">操作</th></tr>`;
+      thead.innerHTML = headHtml;
+
+      tbody.innerHTML = '';
+      sheet.data.forEach((row, rowIndex) => {
+        const tr = document.createElement('tr');
+        let bodyHtml = '';
+        sheet.columns.forEach(col => {
+          const val = row[col.key] !== undefined ? row[col.key] : '';
+          bodyHtml += `<td class="editable" ondblclick="editCell(${rowIndex}, '${col.key}')">${val}</td>`;
+        });
+        bodyHtml += `<td class="text-center"><button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteRow(${rowIndex})">刪除</button></td>`;
+        tr.innerHTML = bodyHtml;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function editCell(rowIndex, colKey) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const oldVal = sheet.data[rowIndex][colKey] || '';
+      const newVal = prompt("請輸入修改內容：", oldVal);
+      if (newVal !== null) {
+        sheet.data[rowIndex][colKey] = newVal.trim();
+        saveData();
+        renderTable();
+      }
+    }
+
+    function addRow() {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const newRow = { no: sheet.data.length + 1, img: "📐" };
+      sheet.columns.forEach(col => {
+        if (!newRow[col.key]) newRow[col.key] = "-";
+      });
+      sheet.data.push(newRow);
+      saveData();
+      renderTable();
+    }
+
+    function addColumn() {
+      if (!checkAuth()) return;
+      const colName = prompt("請輸入新欄位名稱：");
+      if (colName) {
+        const sheet = getActiveSheet();
+        const key = 'custom_' + Date.now();
+        sheet.columns.push({ key: key, label: colName });
+        saveData();
+        renderTable();
+      }
+    }
+
+    function deleteRow(rowIndex) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      if (confirm("確定刪除此列嗎？")) {
+        sheet.data.splice(rowIndex, 1);
+        saveData();
+        renderTable();
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('outsourcing_workbook', JSON.stringify(workbook));
+      localStorage.setItem('outsourcing_active_sheet', activeSheetId);
+    }
+
+    // 初次載入
+    renderSheets();
+    renderTable();
+  </script>
+</body>
+</html>
