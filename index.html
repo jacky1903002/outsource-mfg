@@ -24,7 +24,6 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      overflow: hidden;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -33,18 +32,28 @@
     .app-container {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      min-height: 100vh;
       padding: 16px 24px;
     }
 
+    /* 頂部凍結區域容器 */
+    .sticky-header-group {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: var(--bg-color);
+      padding-top: 4px;
+    }
+
+    /* 頂部標頭 */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 12px;
-      flex-shrink: 0;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 12px;
+      background-color: var(--bg-color);
     }
 
     .brand-title {
@@ -76,6 +85,7 @@
       gap: 12px;
     }
 
+    /* 工作表頁籤列 */
     .sheet-bar {
       display: flex;
       align-items: center;
@@ -86,7 +96,6 @@
       border: 1px solid var(--border-color);
       border-bottom: none;
       overflow-x: auto;
-      flex-shrink: 0;
     }
 
     .sheet-tab {
@@ -117,11 +126,10 @@
     }
     .sheet-close:hover { color: #f87171; opacity: 1; }
 
+    /* 主要內容區 */
     .tab-content {
       display: flex;
       flex-direction: column;
-      flex: 1;
-      min-height: 0;
       background-color: var(--card-bg);
       border-radius: 0 0 8px 8px;
       border: 1px solid var(--border-color);
@@ -135,7 +143,6 @@
       background-color: var(--card-bg);
       border-bottom: 1px solid var(--border-color);
       align-items: center;
-      flex-shrink: 0;
     }
 
     .btn {
@@ -156,9 +163,7 @@
     .btn-danger { background-color: var(--danger); color: #fff; border: none; }
 
     .table-scroll-container {
-      flex: 1;
-      min-height: 0;
-      overflow: auto;
+      overflow-x: auto;
     }
 
     table {
@@ -176,9 +181,24 @@
       padding: 12px 16px;
       border-bottom: 2px solid var(--border-color);
       position: sticky;
-      top: 0;
+      top: 152px; /* 固定於頂部控制區下方 */
       z-index: 10;
       white-space: nowrap;
+    }
+
+    /* 表頭欄位刪除按鈕樣式 */
+    .col-delete-btn {
+      margin-left: 6px;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 0.75rem;
+      opacity: 0.6;
+      display: inline-block;
+      padding: 0 4px;
+    }
+    .col-delete-btn:hover {
+      opacity: 1;
+      font-weight: bold;
     }
 
     td {
@@ -194,7 +214,6 @@
     .editable { cursor: pointer; }
     .editable:hover { outline: 1px dashed var(--accent); }
 
-    /* 產品圖面預覽樣式 */
     .product-img-preview {
       max-width: 50px;
       max-height: 50px;
@@ -204,6 +223,7 @@
       vertical-align: middle;
     }
 
+    /* 登入彈窗 Modal */
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -211,7 +231,7 @@
       display: none;
       justify-content: center;
       align-items: center;
-      z-index: 100;
+      z-index: 200;
     }
     .modal {
       background: var(--card-bg);
@@ -235,31 +255,34 @@
 <body>
 
   <div class="app-container">
-    <header>
-      <div class="brand-title">
-        <div>
-          <span class="badge-pro">OUTSOURCING TRACKER</span>
-          <h1>委外廠商製作進度追蹤</h1>
+    <!-- 凍結窗格控制區 -->
+    <div class="sticky-header-group">
+      <header>
+        <div class="brand-title">
+          <div>
+            <span class="badge-pro">OUTSOURCING TRACKER</span>
+            <h1>委外廠商製作進度追蹤</h1>
+          </div>
         </div>
-      </div>
-      <div class="user-control">
-        <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">權限：訪客 (唯讀)</span>
-        <button id="auth-btn" class="btn btn-primary" onclick="toggleAuth()">管理員登入</button>
-      </div>
-    </header>
+        <div class="user-control">
+          <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">權限：訪客 (唯讀)</span>
+          <button id="auth-btn" class="btn btn-primary" onclick="toggleAuth()">管理員登入</button>
+        </div>
+      </header>
 
-    <div class="sheet-bar">
-      <div id="sheets-container" style="display: flex; gap: 6px;"></div>
-      <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="addSheet()">+ 新增列表</button>
-      <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="copySheet()">複製列表</button>
-    </div>
+      <div class="sheet-bar">
+        <div id="sheets-container" style="display: flex; gap: 6px;"></div>
+        <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="addSheet()">+ 新增列表</button>
+        <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="copySheet()">複製列表</button>
+      </div>
 
-    <div class="tab-content">
-      <div class="toolbar">
+      <div class="toolbar" style="border-radius: 0;">
         <button class="btn btn-primary" onclick="addRow()">新增項目</button>
         <button class="btn" onclick="addColumn()">新增欄位</button>
       </div>
+    </div>
 
+    <div class="tab-content">
       <div class="table-scroll-container">
         <table>
           <thead id="table-head"></thead>
@@ -269,7 +292,6 @@
     </div>
   </div>
 
-  <!-- 隱藏的檔案選擇器用於圖片上傳 -->
   <input type="file" id="image-file-input" accept="image/*" style="display: none;">
 
   <!-- 登入 Modal -->
@@ -284,7 +306,6 @@
   </div>
 
   <script>
-    // 預設欄位：在 No. 後新增 productImg (產品圖面)
     const defaultColumns = [
       { key: "no", label: "No." },
       { key: "productImg", label: "產品圖面" },
@@ -324,7 +345,6 @@
       return true;
     }
 
-    /* 登入控制 */
     function toggleAuth() {
       if (isLoggedIn) {
         isLoggedIn = false;
@@ -346,7 +366,6 @@
       const user = document.getElementById('username').value;
       const pass = document.getElementById('password').value;
       
-      // 僅留您的指定帳號與密碼，移除舊有預設邏輯與空字串條件
       if (user === 'n1693131@gmail.com' && pass === 'Breakheart1a') {
         isLoggedIn = true;
         document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
@@ -440,8 +459,12 @@
       const tbody = document.getElementById('table-body');
 
       let headHtml = '<tr>';
-      sheet.columns.forEach(col => {
-        headHtml += `<th>${col.label}</th>`;
+      sheet.columns.forEach((col, index) => {
+        headHtml += `
+          <th>
+            ${col.label}
+            <span class="col-delete-btn" title="刪除此欄位" onclick="deleteColumn(${index})">✕</span>
+          </th>`;
       });
       headHtml += `<th class="text-center">操作</th></tr>`;
       thead.innerHTML = headHtml;
@@ -453,7 +476,6 @@
         sheet.columns.forEach(col => {
           const val = row[col.key] !== undefined ? row[col.key] : '';
           
-          // 針對產品圖面欄位特殊渲染
           if (col.key === 'productImg') {
             const imgDisplay = val ? `<img src="${val}" class="product-img-preview" alt="圖面">` : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
             bodyHtml += `<td class="editable text-center" ondblclick="editProductImage(${rowIndex})">${imgDisplay}</td>`;
@@ -467,7 +489,19 @@
       });
     }
 
-    /* 處理產品圖面上傳與更換 */
+    /* 刪除指定欄位 */
+    function deleteColumn(colIndex) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const col = sheet.columns[colIndex];
+      
+      if (confirm(`確定要刪除欄位「${col.label}」嗎？此操作無法復原！`)) {
+        sheet.columns.splice(colIndex, 1);
+        saveData();
+        renderTable();
+      }
+    }
+
     function editProductImage(rowIndex) {
       if (!checkAuth()) return;
       currentEditImageTarget = rowIndex;
@@ -488,7 +522,6 @@
       }
     }
 
-    // 監聽本機圖片上傳選擇
     document.getElementById('image-file-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (file && currentEditImageTarget !== null) {
