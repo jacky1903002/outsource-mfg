@@ -37,7 +37,6 @@
       padding: 16px 24px;
     }
 
-    /* 頂部標頭 */
     header {
       display: flex;
       justify-content: space-between;
@@ -77,7 +76,6 @@
       gap: 12px;
     }
 
-    /* 工作表頁籤列 */
     .sheet-bar {
       display: flex;
       align-items: center;
@@ -119,7 +117,6 @@
     }
     .sheet-close:hover { color: #f87171; opacity: 1; }
 
-    /* 主要內容區 */
     .tab-content {
       display: flex;
       flex-direction: column;
@@ -158,7 +155,6 @@
     .btn-primary:hover { background-color: #0369a1; color: #fff; }
     .btn-danger { background-color: var(--danger); color: #fff; border: none; }
 
-    /* 表格內部滾動區域與固定表頭 */
     .table-scroll-container {
       flex: 1;
       min-height: 0;
@@ -190,15 +186,24 @@
       border-bottom: 1px solid var(--border-color);
       color: var(--text-main);
       white-space: nowrap;
+      vertical-align: middle;
     }
 
     tr:hover td { background-color: rgba(255, 255, 255, 0.03); }
     .text-center { text-align: center; }
-    .highlight-item { font-weight: bold; color: var(--accent); }
     .editable { cursor: pointer; }
     .editable:hover { outline: 1px dashed var(--accent); }
 
-    /* 登入彈窗 Modal */
+    /* 產品圖面預覽樣式 */
+    .product-img-preview {
+      max-width: 50px;
+      max-height: 50px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -243,7 +248,6 @@
       </div>
     </header>
 
-    <!-- 多工作表 (列表) 分頁列 -->
     <div class="sheet-bar">
       <div id="sheets-container" style="display: flex; gap: 6px;"></div>
       <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="addSheet()">+ 新增列表</button>
@@ -265,21 +269,25 @@
     </div>
   </div>
 
+  <!-- 隱藏的檔案選擇器用於圖片上傳 -->
+  <input type="file" id="image-file-input" accept="image/*" style="display: none;">
+
   <!-- 登入 Modal -->
   <div id="login-modal" class="modal-backdrop">
     <div class="modal">
       <h3 style="margin: 0; color: var(--accent);">管理員登入</h3>
-      <input type="text" id="username" placeholder="帳號">
-      <input type="password" id="password" placeholder="密碼">
+      <input type="text" id="username" placeholder="請輸入帳號">
+      <input type="password" id="password" placeholder="請輸入密碼">
       <button class="btn btn-primary" onclick="login()">登入</button>
       <button class="btn" onclick="closeLoginModal()">取消</button>
     </div>
   </div>
 
   <script>
-    // 預設欄位定義與初始化資料
+    // 預設欄位：在 No. 後新增 productImg (產品圖面)
     const defaultColumns = [
       { key: "no", label: "No." },
+      { key: "productImg", label: "產品圖面" },
       { key: "img", label: "示意圖" },
       { key: "itemNo", label: "品號" },
       { key: "itemName", label: "品名" },
@@ -291,12 +299,13 @@
     ];
 
     const initialData = [
-      { no: 1, img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "260", note1: "50001-111", note2: "", reason: "", status: "" },
-      { no: 2, img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" },
-      { no: 3, img: "📐", itemNo: "14967-VWNE001", itemName: "FVSE-0032-4", vendor: "260", note1: "50001-113", note2: "", reason: "", status: "" }
+      { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "260", note1: "50001-111", note2: "", reason: "", status: "" },
+      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" },
+      { no: 3, productImg: "", img: "📐", itemNo: "14967-VWNE001", itemName: "FVSE-0032-4", vendor: "260", note1: "50001-113", note2: "", reason: "", status: "" }
     ];
 
     let isLoggedIn = false;
+    let currentEditImageTarget = null;
     let workbook = JSON.parse(localStorage.getItem('outsourcing_workbook')) || [
       { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData },
       { id: "sheet_2", name: "採購追蹤項目", columns: defaultColumns, data: [] }
@@ -329,12 +338,16 @@
 
     function closeLoginModal() {
       document.getElementById('login-modal').style.display = 'none';
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
     }
 
     function login() {
       const user = document.getElementById('username').value;
       const pass = document.getElementById('password').value;
-      if ((user === 'n1693131@gmail.com' && pass === 'Breakheart1a') || (user === '' && pass === '')) {
+      
+      // 僅留您的指定帳號與密碼，移除舊有預設邏輯與空字串條件
+      if (user === 'n1693131@gmail.com' && pass === 'Breakheart1a') {
         isLoggedIn = true;
         document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
         document.getElementById('auth-btn').innerText = "登出";
@@ -344,7 +357,6 @@
       }
     }
 
-    /* 渲染多列表(工作表)分頁 */
     function renderSheets() {
       const container = document.getElementById('sheets-container');
       container.innerHTML = '';
@@ -422,7 +434,6 @@
       }
     }
 
-    /* 渲染表格數據 */
     function renderTable() {
       const sheet = getActiveSheet();
       const thead = document.getElementById('table-head');
@@ -441,13 +452,58 @@
         let bodyHtml = '';
         sheet.columns.forEach(col => {
           const val = row[col.key] !== undefined ? row[col.key] : '';
-          bodyHtml += `<td class="editable" ondblclick="editCell(${rowIndex}, '${col.key}')">${val}</td>`;
+          
+          // 針對產品圖面欄位特殊渲染
+          if (col.key === 'productImg') {
+            const imgDisplay = val ? `<img src="${val}" class="product-img-preview" alt="圖面">` : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
+            bodyHtml += `<td class="editable text-center" ondblclick="editProductImage(${rowIndex})">${imgDisplay}</td>`;
+          } else {
+            bodyHtml += `<td class="editable" ondblclick="editCell(${rowIndex}, '${col.key}')">${val}</td>`;
+          }
         });
         bodyHtml += `<td class="text-center"><button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteRow(${rowIndex})">刪除</button></td>`;
         tr.innerHTML = bodyHtml;
         tbody.appendChild(tr);
       });
     }
+
+    /* 處理產品圖面上傳與更換 */
+    function editProductImage(rowIndex) {
+      if (!checkAuth()) return;
+      currentEditImageTarget = rowIndex;
+      
+      const choice = prompt("請選擇圖片來源：\n1. 輸入 1 選擇本機圖片檔上傳\n2. 輸入圖片網址 (URL)\n3. 輸入 0 清除圖片", "1");
+      if (choice === "1") {
+        document.getElementById('image-file-input').click();
+      } else if (choice === "0") {
+        const sheet = getActiveSheet();
+        sheet.data[rowIndex].productImg = "";
+        saveData();
+        renderTable();
+      } else if (choice && choice.trim() !== "") {
+        const sheet = getActiveSheet();
+        sheet.data[rowIndex].productImg = choice.trim();
+        saveData();
+        renderTable();
+      }
+    }
+
+    // 監聽本機圖片上傳選擇
+    document.getElementById('image-file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file && currentEditImageTarget !== null) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const sheet = getActiveSheet();
+          sheet.data[currentEditImageTarget].productImg = evt.target.result;
+          saveData();
+          renderTable();
+          currentEditImageTarget = null;
+        };
+        reader.readAsDataURL(file);
+      }
+      this.value = '';
+    });
 
     function editCell(rowIndex, colKey) {
       if (!checkAuth()) return;
@@ -464,7 +520,7 @@
     function addRow() {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
-      const newRow = { no: sheet.data.length + 1, img: "📐" };
+      const newRow = { no: sheet.data.length + 1, productImg: "", img: "📐" };
       sheet.columns.forEach(col => {
         if (!newRow[col.key]) newRow[col.key] = "-";
       });
@@ -500,7 +556,6 @@
       localStorage.setItem('outsourcing_active_sheet', activeSheetId);
     }
 
-    // 初次載入
     renderSheets();
     renderTable();
   </script>
