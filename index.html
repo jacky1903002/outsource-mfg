@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>委外廠商製作進度追蹤表</title>
-  <!-- 引入 SheetJS 與 JSZip 套件用於解析 Excel 與圖片 -->
+  <title>委外廠商製作進度追蹤表 (雲端版)</title>
+  <!-- 引入 SheetJS 與 JSZip 套件 -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  
   <style>
     :root {
       --bg-color: #0b1329;
@@ -256,7 +257,7 @@
     <header>
       <div class="brand-title">
         <div>
-          <span class="badge-pro">OUTSOURCING TRACKER</span>
+          <span class="badge-pro">OUTSOURCING TRACKER (CLOUD)</span>
           <h1>委外廠商製作進度追蹤</h1>
         </div>
       </div>
@@ -277,6 +278,7 @@
         <button class="btn btn-primary" onclick="addRow()">新增項目</button>
         <button class="btn" onclick="addColumn()">新增欄位</button>
         <button class="btn btn-success" onclick="triggerExcelImport()">📥 匯入 Excel (含圖片)</button>
+        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto;">☁️ 雲端載入中...</span>
       </div>
 
       <div class="table-scroll-container">
@@ -302,7 +304,26 @@
     </div>
   </div>
 
-  <script>
+  <!-- 載入 Firebase SDK (v10 JS Module 寫法) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // 1. 請在此處填入您從 Firebase Console 複製的金鑰檔
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // 初始化 Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
+
     const defaultColumns = [
       { key: "no", label: "No." },
       { key: "productImg", label: "產品圖面" },
@@ -318,17 +339,55 @@
 
     const initialData = [
       { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "260", note1: "50001-111", note2: "", reason: "", status: "" },
-      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" },
-      { no: 3, productImg: "", img: "📐", itemNo: "14967-VWNE001", itemName: "FVSE-0032-4", vendor: "260", note1: "50001-113", note2: "", reason: "", status: "" }
+      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" }
     ];
 
     let isLoggedIn = false;
     let currentEditImageTarget = null;
-    let workbook = JSON.parse(localStorage.getItem('outsourcing_workbook')) || [
-      { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData },
-      { id: "sheet_2", name: "採購追蹤項目", columns: defaultColumns, data: [] }
+    let workbook = [
+      { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData }
     ];
-    let activeSheetId = localStorage.getItem('outsourcing_active_sheet') || workbook[0].id;
+    let activeSheetId = "sheet_1";
+
+    // 2. 儲存資料到 Firestore 雲端資料庫
+    async function saveData() {
+      const statusEl = document.getElementById('sync-status');
+      statusEl.innerText = "☁️ 同步至雲端中...";
+      try {
+        await setDoc(DOC_REF, {
+          workbook: workbook,
+          activeSheetId: activeSheetId,
+          updatedAt: new Date().toISOString()
+        });
+        statusEl.innerText = "✅ 已同步雲端";
+      } catch (e) {
+        console.error("雲端儲存失敗：", e);
+        statusEl.innerText = "❌ 雲端同步失敗";
+      }
+    }
+
+    // 3. 從 Firestore 雲端讀取資料
+    async function loadDataFromCloud() {
+      const statusEl = document.getElementById('sync-status');
+      try {
+        const docSnap = await getDoc(DOC_REF);
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          workbook = cloudData.workbook || workbook;
+          activeSheetId = cloudData.activeSheetId || workbook[0].id;
+          statusEl.innerText = "✅ 雲端資料載入完成";
+        } else {
+          // 若為第一次使用，寫入預設資料
+          await saveData();
+          statusEl.innerText = "✅ 建立雲端預設資料";
+        }
+      } catch (e) {
+        console.error("雲端讀取失敗：", e);
+        statusEl.innerText = "⚠️ 載入失敗 (請檢查金鑰)";
+      }
+      renderSheets();
+      renderTable();
+    }
 
     function getActiveSheet() {
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
@@ -342,7 +401,7 @@
       return true;
     }
 
-    function toggleAuth() {
+    window.toggleAuth = function() {
       if (isLoggedIn) {
         isLoggedIn = false;
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
@@ -351,15 +410,15 @@
       } else {
         document.getElementById('login-modal').style.display = 'flex';
       }
-    }
+    };
 
-    function closeLoginModal() {
+    window.closeLoginModal = function() {
       document.getElementById('login-modal').style.display = 'none';
       document.getElementById('username').value = '';
       document.getElementById('password').value = '';
-    }
+    };
 
-    function login() {
+    window.login = function() {
       const user = document.getElementById('username').value;
       const pass = document.getElementById('password').value;
       
@@ -371,7 +430,7 @@
       } else {
         alert("帳號或密碼錯誤！");
       }
-    }
+    };
 
     function renderSheets() {
       const container = document.getElementById('sheets-container');
@@ -386,7 +445,7 @@
         tab.onclick = (e) => {
           if (e.target.classList.contains('sheet-close')) return;
           activeSheetId = sheet.id;
-          localStorage.setItem('outsourcing_active_sheet', activeSheetId);
+          saveData();
           renderSheets();
           renderTable();
         };
@@ -394,7 +453,7 @@
       });
     }
 
-    function addSheet() {
+    window.addSheet = function() {
       if (!checkAuth()) return;
       const newId = 'sheet_' + Date.now();
       const newSheet = {
@@ -408,9 +467,9 @@
       saveData();
       renderSheets();
       renderTable();
-    }
+    };
 
-    function copySheet() {
+    window.copySheet = function() {
       if (!checkAuth()) return;
       const current = getActiveSheet();
       const newId = 'sheet_' + Date.now();
@@ -424,9 +483,9 @@
       saveData();
       renderSheets();
       renderTable();
-    }
+    };
 
-    function renameSheet(sheetId) {
+    window.renameSheet = function(sheetId) {
       if (!checkAuth()) return;
       const sheet = workbook.find(s => s.id === sheetId);
       const newName = prompt("請輸入列表名稱：", sheet.name);
@@ -435,9 +494,9 @@
         saveData();
         renderSheets();
       }
-    }
+    };
 
-    function deleteSheet(sheetId, e) {
+    window.deleteSheet = function(sheetId, e) {
       e.stopPropagation();
       if (!checkAuth()) return;
       if (workbook.length <= 1) return;
@@ -448,9 +507,8 @@
         renderSheets();
         renderTable();
       }
-    }
+    };
 
-    // 判斷字串是否為圖片網址或 Base64
     function isImageUrl(url) {
       if (!url || typeof url !== 'string') return false;
       const trimmed = url.trim().toLowerCase();
@@ -465,9 +523,9 @@
       let headHtml = '<tr>';
       sheet.columns.forEach((col, index) => {
         headHtml += `
-          <th>
+          <th class="editable" ondblclick="renameColumn(${index})">
             ${col.label}
-            <span class="col-delete-btn" title="刪除此欄位" onclick="deleteColumn(${index})">✕</span>
+            <span class="col-delete-btn" title="刪除此欄位" onclick="deleteColumn(${index}, event)">✕</span>
           </th>`;
       });
       headHtml += `<th class="text-center">操作</th></tr>`;
@@ -480,7 +538,6 @@
         sheet.columns.forEach(col => {
           const val = row[col.key] !== undefined ? row[col.key] : '';
           
-          // 只要是 productImg 欄位或者其值為圖片網址，即渲染為圖片
           if (col.key === 'productImg' || isImageUrl(val)) {
             const imgDisplay = isImageUrl(val) 
               ? `<img src="${val.trim()}" class="product-img-preview" alt="圖面" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'color:var(--danger); font-size:0.8rem;\\'>圖片連結失效</span>';">` 
@@ -496,7 +553,21 @@
       });
     }
 
-    function deleteColumn(colIndex) {
+    window.renameColumn = function(colIndex) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const oldLabel = sheet.columns[colIndex].label;
+      const newLabel = prompt("請輸入新的欄位名稱：", oldLabel);
+      
+      if (newLabel !== null && newLabel.trim() !== "") {
+        sheet.columns[colIndex].label = newLabel.trim();
+        saveData();
+        renderTable();
+      }
+    };
+
+    window.deleteColumn = function(colIndex, e) {
+      if (e) e.stopPropagation();
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
       const col = sheet.columns[colIndex];
@@ -506,13 +577,12 @@
         saveData();
         renderTable();
       }
-    }
+    };
 
-    /* 一鍵匯入 Excel (含圖片) 邏輯 */
-    function triggerExcelImport() {
+    window.triggerExcelImport = function() {
       if (!checkAuth()) return;
       document.getElementById('excel-file-input').click();
-    }
+    };
 
     document.getElementById('excel-file-input').addEventListener('change', async function(e) {
       const file = e.target.files[0];
@@ -520,8 +590,6 @@
 
       try {
         const arrayBuffer = await file.arrayBuffer();
-        
-        // 1. 使用 SheetJS 解析文字資料
         const wb = XLSX.read(arrayBuffer, { type: 'array' });
         const firstSheetName = wb.SheetNames[0];
         const worksheet = wb.Sheets[firstSheetName];
@@ -532,7 +600,6 @@
           return;
         }
 
-        // 2. 使用 JSZip 解壓縮 Excel 檔提取內嵌圖片
         const zip = await JSZip.loadAsync(arrayBuffer);
         const imagesMap = {}; 
         
@@ -545,7 +612,6 @@
           imagesMap[i] = `data:${mime};base64,${fileData}`;
         }
 
-        // 3. 建立新的 Table 結構
         const headerRow = jsonRows[0] || [];
         const newColumns = [];
         
@@ -553,7 +619,6 @@
           let key = `col_${index}`;
           const name = String(colName).trim();
           
-          // 擴充識別關鍵字，支援「小圖」、「縮圖」、「圖檔」等
           if (name.toUpperCase().includes("SEQ") || name.toUpperCase().includes("NO")) key = "no";
           else if (name.includes("圖面") || name.includes("小圖") || name.includes("縮圖") || name.includes("圖檔")) key = "productImg";
           else if (name.includes("示意")) key = "img";
@@ -580,7 +645,6 @@
             rowObj[col.key] = rowData[cIdx] !== undefined ? String(rowData[cIdx]) : "";
           });
 
-          // 若文字內容本身為圖片網址，保持網址；若為空且 Excel 內有嵌圖，指派 Base64 圖片
           if (!rowObj['productImg'] && imagesMap[imgIndex]) {
             rowObj['productImg'] = imagesMap[imgIndex];
             imgIndex++;
@@ -589,14 +653,13 @@
           newData.push(rowObj);
         }
 
-        // 4. 更新當前工作表
         const currentSheet = getActiveSheet();
         currentSheet.columns = newColumns.length > 0 ? newColumns : defaultColumns;
         currentSheet.data = newData;
 
         saveData();
         renderTable();
-        alert("Excel 檔案已成功匯入！");
+        alert("Excel 檔案已成功匯入並同步至雲端！");
 
       } catch (err) {
         console.error(err);
@@ -606,7 +669,7 @@
       }
     });
 
-    function editProductImage(rowIndex, colKey = 'productImg') {
+    window.editProductImage = function(rowIndex, colKey = 'productImg') {
       if (!checkAuth()) return;
       currentEditImageTarget = { rowIndex, colKey };
       
@@ -626,7 +689,7 @@
         saveData();
         renderTable();
       }
-    }
+    };
 
     document.getElementById('image-file-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -635,7 +698,7 @@
         reader.onload = function(evt) {
           const sheet = getActiveSheet();
           const { rowIndex, colKey } = currentEditImageTarget;
-          sheet.data[rowIndex][colKey] = evt.target.result;
+          sheet.data[rowIndex][colKey] = evt.result;
           saveData();
           renderTable();
           currentEditImageTarget = null;
@@ -645,7 +708,7 @@
       this.value = '';
     });
 
-    function editCell(rowIndex, colKey) {
+    window.editCell = function(rowIndex, colKey) {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
       const oldVal = sheet.data[rowIndex][colKey] || '';
@@ -655,9 +718,9 @@
         saveData();
         renderTable();
       }
-    }
+    };
 
-    function addRow() {
+    window.addRow = function() {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
       const newRow = { no: sheet.data.length + 1, productImg: "", img: "📐" };
@@ -667,9 +730,9 @@
       sheet.data.push(newRow);
       saveData();
       renderTable();
-    }
+    };
 
-    function addColumn() {
+    window.addColumn = function() {
       if (!checkAuth()) return;
       const colName = prompt("請輸入新欄位名稱：");
       if (colName) {
@@ -679,9 +742,9 @@
         saveData();
         renderTable();
       }
-    }
+    };
 
-    function deleteRow(rowIndex) {
+    window.deleteRow = function(rowIndex) {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
       if (confirm("確定刪除此列嗎？")) {
@@ -689,15 +752,10 @@
         saveData();
         renderTable();
       }
-    }
+    };
 
-    function saveData() {
-      localStorage.setItem('outsourcing_workbook', JSON.stringify(workbook));
-      localStorage.setItem('outsourcing_active_sheet', activeSheetId);
-    }
-
-    renderSheets();
-    renderTable();
+    // 啟動時從 Firebase 載入資料
+    loadDataFromCloud();
   </script>
 </body>
 </html>
