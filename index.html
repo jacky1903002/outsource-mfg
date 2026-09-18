@@ -304,19 +304,20 @@
     </div>
   </div>
 
-  <!-- 載入 Firebase SDK (v10 JS Module 寫法) -->
+  <!-- 載入 Firebase SDK 並代入您的金鑰 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. 請在此處填入您從 Firebase Console 複製的金鑰檔
+    // 已套用您的 Firebase 設定
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
+      authDomain: "outsourcemfg-59ca8.firebaseapp.com",
+      projectId: "outsourcemfg-59ca8",
+      storageBucket: "outsourcemfg-59ca8.firebasestorage.app",
+      messagingSenderId: "408387263887",
+      appId: "1:408387263887:web:17f80ca6c5263610cfbffa",
+      measurementId: "G-XH421GGFC9"
     };
 
     // 初始化 Firebase
@@ -349,7 +350,7 @@
     ];
     let activeSheetId = "sheet_1";
 
-    // 2. 儲存資料到 Firestore 雲端資料庫
+    // 儲存資料到 Firestore 雲端資料庫
     async function saveData() {
       const statusEl = document.getElementById('sync-status');
       statusEl.innerText = "☁️ 同步至雲端中...";
@@ -366,7 +367,7 @@
       }
     }
 
-    // 3. 從 Firestore 雲端讀取資料
+    // 從 Firestore 雲端讀取資料
     async function loadDataFromCloud() {
       const statusEl = document.getElementById('sync-status');
       try {
@@ -377,7 +378,6 @@
           activeSheetId = cloudData.activeSheetId || workbook[0].id;
           statusEl.innerText = "✅ 雲端資料載入完成";
         } else {
-          // 若為第一次使用，寫入預設資料
           await saveData();
           statusEl.innerText = "✅ 建立雲端預設資料";
         }
