@@ -450,6 +450,13 @@
       }
     }
 
+    // 判斷字串是否為圖片網址或 Base64
+    function isImageUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      const trimmed = url.trim().toLowerCase();
+      return trimmed.startsWith('data:image') || trimmed.startsWith('http://') || trimmed.startsWith('https://');
+    }
+
     function renderTable() {
       const sheet = getActiveSheet();
       const thead = document.getElementById('table-head');
@@ -473,9 +480,12 @@
         sheet.columns.forEach(col => {
           const val = row[col.key] !== undefined ? row[col.key] : '';
           
-          if (col.key === 'productImg') {
-            const imgDisplay = (val && val.startsWith('data:image')) ? `<img src="${val}" class="product-img-preview" alt="圖面">` : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
-            bodyHtml += `<td class="editable text-center" ondblclick="editProductImage(${rowIndex})">${imgDisplay}</td>`;
+          // 只要是 productImg 欄位或者其值為圖片網址，即渲染為圖片
+          if (col.key === 'productImg' || isImageUrl(val)) {
+            const imgDisplay = isImageUrl(val) 
+              ? `<img src="${val.trim()}" class="product-img-preview" alt="圖面" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'color:var(--danger); font-size:0.8rem;\\'>圖片連結失效</span>';">` 
+              : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
+            bodyHtml += `<td class="editable text-center" ondblclick="editProductImage(${rowIndex}, '${col.key}')">${imgDisplay}</td>`;
           } else {
             bodyHtml += `<td class="editable" ondblclick="editCell(${rowIndex}, '${col.key}')">${val}</td>`;
           }
@@ -522,11 +532,10 @@
           return;
         }
 
-        // 2. 使用 JSZip 解壓縮 Excel 檔提取圖片
+        // 2. 使用 JSZip 解壓縮 Excel 檔提取內嵌圖片
         const zip = await JSZip.loadAsync(arrayBuffer);
-        const imagesMap = {}; // key: "row_col", val: base64
+        const imagesMap = {}; 
         
-        // 搜尋 xl/media/ 內的圖片
         const mediaFiles = Object.keys(zip.files).filter(path => path.startsWith('xl/media/'));
         for (let i = 0; i < mediaFiles.length; i++) {
           const path = mediaFiles[i];
@@ -543,8 +552,10 @@
         headerRow.forEach((colName, index) => {
           let key = `col_${index}`;
           const name = String(colName).trim();
-          if (name.includes("No") || name.includes("NO")) key = "no";
-          else if (name.includes("圖面")) key = "productImg";
+          
+          // 擴充識別關鍵字，支援「小圖」、「縮圖」、「圖檔」等
+          if (name.toUpperCase().includes("SEQ") || name.toUpperCase().includes("NO")) key = "no";
+          else if (name.includes("圖面") || name.includes("小圖") || name.includes("縮圖") || name.includes("圖檔")) key = "productImg";
           else if (name.includes("示意")) key = "img";
           else if (name.includes("品號")) key = "itemNo";
           else if (name.includes("品名")) key = "itemName";
@@ -569,8 +580,8 @@
             rowObj[col.key] = rowData[cIdx] !== undefined ? String(rowData[cIdx]) : "";
           });
 
-          // 自動按順序把解出的圖片指派給「產品圖面」
-          if (imagesMap[imgIndex]) {
+          // 若文字內容本身為圖片網址，保持網址；若為空且 Excel 內有嵌圖，指派 Base64 圖片
+          if (!rowObj['productImg'] && imagesMap[imgIndex]) {
             rowObj['productImg'] = imagesMap[imgIndex];
             imgIndex++;
           }
@@ -585,7 +596,7 @@
 
         saveData();
         renderTable();
-        alert("Excel 檔案及圖片已成功匯入！");
+        alert("Excel 檔案已成功匯入！");
 
       } catch (err) {
         console.error(err);
@@ -595,21 +606,23 @@
       }
     });
 
-    function editProductImage(rowIndex) {
+    function editProductImage(rowIndex, colKey = 'productImg') {
       if (!checkAuth()) return;
-      currentEditImageTarget = rowIndex;
+      currentEditImageTarget = { rowIndex, colKey };
       
-      const choice = prompt("請選擇圖片來源：\n1. 輸入 1 選擇本機圖片檔上傳\n2. 輸入圖片網址 (URL)\n3. 輸入 0 清除圖片", "1");
+      const sheet = getActiveSheet();
+      const currentVal = sheet.data[rowIndex][colKey] || '';
+
+      const choice = prompt("請選擇圖片來源：\n1. 輸入 1 選擇本機圖片檔上傳\n2. 直接貼上圖片網址 (URL)\n3. 輸入 0 清除圖片", currentVal || "1");
+      
       if (choice === "1") {
         document.getElementById('image-file-input').click();
       } else if (choice === "0") {
-        const sheet = getActiveSheet();
-        sheet.data[rowIndex].productImg = "";
+        sheet.data[rowIndex][colKey] = "";
         saveData();
         renderTable();
       } else if (choice && choice.trim() !== "") {
-        const sheet = getActiveSheet();
-        sheet.data[rowIndex].productImg = choice.trim();
+        sheet.data[rowIndex][colKey] = choice.trim();
         saveData();
         renderTable();
       }
@@ -621,7 +634,8 @@
         const reader = new FileReader();
         reader.onload = function(evt) {
           const sheet = getActiveSheet();
-          sheet.data[currentEditImageTarget].productImg = evt.target.result;
+          const { rowIndex, colKey } = currentEditImageTarget;
+          sheet.data[rowIndex][colKey] = evt.target.result;
           saveData();
           renderTable();
           currentEditImageTarget = null;
