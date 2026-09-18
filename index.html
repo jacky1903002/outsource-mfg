@@ -269,8 +269,8 @@
   <div id="login-modal" class="modal-backdrop">
     <div class="modal">
       <h3 style="margin: 0; color: var(--accent);">管理員登入</h3>
-      <input type="text" id="username" placeholder="帳號 (預設: admin)">
-      <input type="password" id="password" placeholder="密碼 (預設: 1234)">
+      <input type="text" id="username" placeholder="帳號">
+      <input type="password" id="password" placeholder="密碼">
       <button class="btn btn-primary" onclick="login()">登入</button>
       <button class="btn" onclick="closeLoginModal()">取消</button>
     </div>
@@ -340,7 +340,7 @@
         document.getElementById('auth-btn').innerText = "登出";
         closeLoginModal();
       } else {
-        alert("帳號或密碼錯誤！(預設: admin / 1234)");
+        alert("帳號或密碼錯誤！");
       }
     }
 
