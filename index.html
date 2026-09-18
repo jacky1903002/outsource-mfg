@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>委外廠商製作進度追蹤表</title>
+  <!-- 引入 SheetJS 與 JSZip 套件用於解析 Excel 與圖片 -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
     :root {
       --bg-color: #0b1329;
@@ -37,7 +40,6 @@
       padding: 16px 24px;
     }
 
-    /* 頂部控制區 */
     header {
       display: flex;
       justify-content: space-between;
@@ -77,7 +79,6 @@
       gap: 12px;
     }
 
-    /* 工作表頁籤列 */
     .sheet-bar {
       display: flex;
       align-items: center;
@@ -119,7 +120,6 @@
     }
     .sheet-close:hover { color: #f87171; opacity: 1; }
 
-    /* 主要內容區 */
     .tab-content {
       display: flex;
       flex-direction: column;
@@ -156,9 +156,10 @@
     .btn:hover { border-color: var(--accent); color: var(--accent); }
     .btn-primary { background-color: #0284c7; color: #fff; border: none; }
     .btn-primary:hover { background-color: #0369a1; color: #fff; }
+    .btn-success { background-color: #059669; color: #fff; border: none; }
+    .btn-success:hover { background-color: #047857; color: #fff; }
     .btn-danger { background-color: var(--danger); color: #fff; border: none; }
 
-    /* 表格獨立捲動區域 */
     .table-scroll-container {
       flex: 1;
       min-height: 0;
@@ -172,7 +173,6 @@
       font-size: 0.88rem;
     }
 
-    /* 表頭凍結在滾動區頂部 */
     th {
       background-color: #0f172a;
       color: #94a3b8;
@@ -222,7 +222,6 @@
       vertical-align: middle;
     }
 
-    /* 登入 Modal */
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -277,6 +276,7 @@
       <div class="toolbar">
         <button class="btn btn-primary" onclick="addRow()">新增項目</button>
         <button class="btn" onclick="addColumn()">新增欄位</button>
+        <button class="btn btn-success" onclick="triggerExcelImport()">📥 匯入 Excel (含圖片)</button>
       </div>
 
       <div class="table-scroll-container">
@@ -289,6 +289,7 @@
   </div>
 
   <input type="file" id="image-file-input" accept="image/*" style="display: none;">
+  <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
 
   <!-- 登入 Modal -->
   <div id="login-modal" class="modal-backdrop">
@@ -473,7 +474,7 @@
           const val = row[col.key] !== undefined ? row[col.key] : '';
           
           if (col.key === 'productImg') {
-            const imgDisplay = val ? `<img src="${val}" class="product-img-preview" alt="圖面">` : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
+            const imgDisplay = (val && val.startsWith('data:image')) ? `<img src="${val}" class="product-img-preview" alt="圖面">` : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
             bodyHtml += `<td class="editable text-center" ondblclick="editProductImage(${rowIndex})">${imgDisplay}</td>`;
           } else {
             bodyHtml += `<td class="editable" ondblclick="editCell(${rowIndex}, '${col.key}')">${val}</td>`;
@@ -496,6 +497,103 @@
         renderTable();
       }
     }
+
+    /* 一鍵匯入 Excel (含圖片) 邏輯 */
+    function triggerExcelImport() {
+      if (!checkAuth()) return;
+      document.getElementById('excel-file-input').click();
+    }
+
+    document.getElementById('excel-file-input').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // 1. 使用 SheetJS 解析文字資料
+        const wb = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        const worksheet = wb.Sheets[firstSheetName];
+        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!jsonRows || jsonRows.length === 0) {
+          alert("Excel 檔案內容為空！");
+          return;
+        }
+
+        // 2. 使用 JSZip 解壓縮 Excel 檔提取圖片
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const imagesMap = {}; // key: "row_col", val: base64
+        
+        // 搜尋 xl/media/ 內的圖片
+        const mediaFiles = Object.keys(zip.files).filter(path => path.startsWith('xl/media/'));
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const path = mediaFiles[i];
+          const fileData = await zip.files[path].async('base64');
+          const ext = path.split('.').pop().toLowerCase();
+          const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+          imagesMap[i] = `data:${mime};base64,${fileData}`;
+        }
+
+        // 3. 建立新的 Table 結構
+        const headerRow = jsonRows[0] || [];
+        const newColumns = [];
+        
+        headerRow.forEach((colName, index) => {
+          let key = `col_${index}`;
+          const name = String(colName).trim();
+          if (name.includes("No") || name.includes("NO")) key = "no";
+          else if (name.includes("圖面")) key = "productImg";
+          else if (name.includes("示意")) key = "img";
+          else if (name.includes("品號")) key = "itemNo";
+          else if (name.includes("品名")) key = "itemName";
+          else if (name.includes("廠商")) key = "vendor";
+          else if (name.includes("二次")) key = "note2";
+          else if (name.includes("加工") || name.includes("備註")) key = "note1";
+          else if (name.includes("未入庫")) key = "reason";
+          else if (name.includes("狀況") || name.includes("發單")) key = "status";
+
+          newColumns.push({ key: key, label: name });
+        });
+
+        const newData = [];
+        let imgIndex = 0;
+
+        for (let i = 1; i < jsonRows.length; i++) {
+          const rowData = jsonRows[i];
+          if (!rowData || rowData.length === 0) continue;
+
+          const rowObj = {};
+          newColumns.forEach((col, cIdx) => {
+            rowObj[col.key] = rowData[cIdx] !== undefined ? String(rowData[cIdx]) : "";
+          });
+
+          // 自動按順序把解出的圖片指派給「產品圖面」
+          if (imagesMap[imgIndex]) {
+            rowObj['productImg'] = imagesMap[imgIndex];
+            imgIndex++;
+          }
+
+          newData.push(rowObj);
+        }
+
+        // 4. 更新當前工作表
+        const currentSheet = getActiveSheet();
+        currentSheet.columns = newColumns.length > 0 ? newColumns : defaultColumns;
+        currentSheet.data = newData;
+
+        saveData();
+        renderTable();
+        alert("Excel 檔案及圖片已成功匯入！");
+
+      } catch (err) {
+        console.error(err);
+        alert("匯入失敗，請確認檔案格式是否正確。");
+      } finally {
+        this.value = '';
+      }
+    });
 
     function editProductImage(rowIndex) {
       if (!checkAuth()) return;
