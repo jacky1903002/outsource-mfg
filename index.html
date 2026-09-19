@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enterprise Capacity Roadmap & Machine Analytics</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <title>委外廠商製作進度追蹤表 (雲端版)</title>
+  <!-- 引入 SheetJS 與 JSZip 套件 -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  
   <style>
     :root {
       --bg-color: #0b1329;
@@ -22,8 +25,10 @@
     * { box-sizing: border-box; }
 
     html, body {
+      height: 100%;
       margin: 0;
       padding: 0;
+      overflow: hidden;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -32,16 +37,8 @@
     .app-container {
       display: flex;
       flex-direction: column;
+      height: 100vh;
       padding: 16px 24px;
-    }
-
-    /* 頂部固定區域 */
-    .sticky-header-wrapper {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background-color: var(--bg-color);
-      padding-top: 8px;
     }
 
     header {
@@ -51,12 +48,13 @@
       margin-bottom: 12px;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 12px;
+      flex-shrink: 0;
     }
 
     .brand-title {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
     }
 
     .badge-pro {
@@ -71,64 +69,84 @@
 
     h1 {
       margin: 0;
-      font-size: 1.4rem;
+      font-size: 1.8rem;
       font-weight: 700;
       color: var(--accent);
     }
 
-    .auth-box {
+    .user-control {
       display: flex;
       align-items: center;
       gap: 12px;
-      background: var(--card-bg);
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
     }
 
-    .auth-status {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    .nav-tabs {
+    .sheet-bar {
       display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .tab-btn {
-      background: var(--card-bg);
+      align-items: center;
+      gap: 6px;
+      background: #0f172a;
+      padding: 6px 12px;
+      border-radius: 8px 8px 0 0;
       border: 1px solid var(--border-color);
-      color: var(--text-muted);
-      padding: 8px 20px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.2s;
+      border-bottom: none;
+      overflow-x: auto;
+      flex-shrink: 0;
     }
 
-    .tab-btn.active {
+    .sheet-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      user-select: none;
+    }
+
+    .sheet-tab.active {
       background: #0284c7;
       color: #fff;
       border-color: #38bdf8;
-      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+
+    .sheet-close {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      cursor: pointer;
+    }
+    .sheet-close:hover { color: #f87171; opacity: 1; }
+
+    .tab-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      background-color: var(--card-bg);
+      border-radius: 0 0 8px 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     }
 
     .toolbar {
       display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 16px;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
       align-items: center;
+      flex-shrink: 0;
     }
 
     .btn {
       background-color: var(--card-bg);
       color: var(--text-main);
       border: 1px solid var(--border-color);
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
@@ -136,993 +154,608 @@
       transition: all 0.2s;
     }
 
-    .btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
     .btn-primary { background-color: #0284c7; color: #fff; border: none; }
     .btn-primary:hover { background-color: #0369a1; color: #fff; }
-    .btn-success { background-color: #10b981; color: #fff; border: none; }
-    .btn-success:hover { background-color: #059669; color: #fff; }
-    .btn-danger { background-color: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
-    .btn-danger:hover { background-color: #dc2626; color: #fff; }
+    .btn-success { background-color: #059669; color: #fff; border: none; }
+    .btn-success:hover { background-color: #047857; color: #fff; }
+    .btn-danger { background-color: var(--danger); color: #fff; border: none; }
 
-    .tab-content {
-      display: none;
-      background-color: var(--card-bg);
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-      margin-bottom: 24px;
+    .table-scroll-container {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
     }
-
-    .tab-content.active { display: block; }
 
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
+      font-size: 0.88rem;
     }
 
-    /* 凍結表格標頭 Header：使用容器的邊界進行黏著 */
     th {
       background-color: #0f172a;
       color: #94a3b8;
       font-weight: 700;
-      font-size: 0.85rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
       padding: 12px 16px;
       border-bottom: 2px solid var(--border-color);
       position: sticky;
-      top: 0; /* 配合父層容器固定 */
-      z-index: 50;
-      user-select: none;
+      top: 0;
+      z-index: 10;
+      white-space: nowrap;
     }
 
-    .th-header-content {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-    }
-
-    .th-title {
-      cursor: pointer;
-      flex: 1;
-    }
-    .th-title:hover {
-      color: var(--accent);
-      text-decoration: underline;
-    }
-
-    .btn-del-col {
-      background: none;
-      border: none;
-      color: var(--text-muted);
+    .col-delete-btn {
+      margin-left: 6px;
+      color: #ef4444;
       cursor: pointer;
       font-size: 0.75rem;
-      padding: 2px 4px;
-      border-radius: 3px;
+      opacity: 0.6;
+      display: inline-block;
+      padding: 0 4px;
     }
-    .btn-del-col:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
-    body.read-only .btn-del-col { display: none; }
-
-    body:not(.read-only) th.draggable-col { cursor: grab; }
-    body:not(.read-only) th.draggable-col:active { cursor: grabbing; }
+    .col-delete-btn:hover {
+      opacity: 1;
+      font-weight: bold;
+    }
 
     td {
-      padding: 9px 16px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border-color);
-      font-size: 0.88rem;
       color: var(--text-main);
+      white-space: nowrap;
       vertical-align: middle;
     }
 
     tr:hover td { background-color: rgba(255, 255, 255, 0.03); }
+    .text-center { text-align: center; }
+    .editable { cursor: pointer; }
+    .editable:hover { outline: 1px dashed var(--accent); }
 
-    .drag-handle {
-      cursor: grab;
-      color: var(--text-muted);
-      font-size: 1rem;
-      text-align: center;
-      width: 30px;
-      user-select: none;
-    }
-    .drag-handle:active { cursor: grabbing; }
-    body.read-only .drag-handle { display: none; }
-
-    .drag-over-row { border-top: 2px solid var(--accent) !important; }
-    .drag-over-col { border-left: 2px solid var(--accent) !important; }
-
-    .material-header {
-      font-weight: 800;
-      color: var(--accent);
-      background-color: rgba(15, 23, 42, 0.5);
-      vertical-align: middle;
-      border-right: 1px solid var(--border-color);
-    }
-
-    .analytics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      padding: 20px;
-    }
-
-    .stat-card {
-      background: #0f172a;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    .stat-card-title { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
-    .stat-card-value { font-size: 1.6rem; font-weight: 700; color: var(--success); }
-
-    .delta-badge {
-      display: inline-block;
-      padding: 2px 8px;
+    .product-img-preview {
+      max-width: 50px;
+      max-height: 50px;
+      object-fit: cover;
       border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
-    .delta-plus { background: rgba(52, 211, 153, 0.15); color: var(--success); border: 1px solid var(--success); }
-    .delta-new { background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid var(--accent); }
-
-    body.read-only .editable { cursor: default; }
-    body:not(.read-only) .editable { cursor: pointer; }
-    body:not(.read-only) .editable:hover {
-      background-color: rgba(56, 189, 248, 0.15) !important;
-      outline: 1px dashed var(--accent);
+      border: 1px solid var(--border-color);
+      vertical-align: middle;
     }
 
-    .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
-    body:not(.read-only) .action-btn:hover { color: var(--danger); }
-    body.read-only .action-btn { opacity: 0.3; cursor: not-allowed; }
-
-    /* Modal */
-    .modal-overlay {
-      display: none;
+    .modal-backdrop {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(11, 19, 41, 0.85);
-      backdrop-filter: blur(4px);
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
       justify-content: center;
       align-items: center;
-      z-index: 1000;
+      z-index: 200;
     }
-    .modal-card {
+    .modal {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 12px;
       padding: 24px;
-      width: 100%;
-      max-width: 360px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
-    .modal-card h3 { margin-top: 0; margin-bottom: 16px; color: var(--accent); }
-    .modal-input {
-      width: 100%;
-      padding: 10px 12px;
-      margin-bottom: 12px;
-      background: #0f172a;
-      border: 1px solid var(--border-color);
+    .modal input {
+      padding: 8px 12px;
       border-radius: 6px;
-      color: var(--text-main);
-      font-size: 0.9rem;
+      border: 1px solid var(--border-color);
+      background: #0f172a;
+      color: #fff;
     }
-    .modal-input:focus { outline: none; border-color: var(--accent); }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
   </style>
 </head>
-<body class="read-only">
+<body>
 
   <div class="app-container">
-    <!-- 固定頂部控制列區塊 -->
-    <div class="sticky-header-wrapper" id="sticky-header">
-      <header>
-        <div class="brand-title">
-          <span class="badge-pro">PRO ENTERPRISE</span>
-          <h1>2026 Capacity Roadmap & Machine Analytics</h1>
+    <header>
+      <div class="brand-title">
+        <div>
+          <span class="badge-pro">OUTSOURCING TRACKER (CLOUD)</span>
+          <h1>委外廠商製作進度追蹤</h1>
         </div>
-        <div class="auth-box">
-          <span id="auth-status" class="auth-status">狀態：唯讀模式</span>
-          <button id="auth-btn" class="btn btn-primary">管理員登入</button>
-        </div>
-      </header>
-
-      <!-- 分頁導覽 -->
-      <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('roadmap-tab', event)">📊 Capacity Roadmap 圖鑑表</button>
-        <button class="tab-btn" onclick="switchTab('analytics-tab', event)">📈 機台增減動態分析</button>
       </div>
-
-      <!-- 工具列 -->
-      <div class="toolbar">
-        <button id="add-row-btn" class="btn btn-primary">➕ 新增資料列</button>
-        <button id="add-col-btn" class="btn btn-primary">➕ 新增欄位</button>
-        <button id="import-csv-btn" class="btn btn-success">📥 匯入 CSV</button>
-        <button id="export-json-btn" class="btn">💾 備份 JSON</button>
-        <button id="import-btn" class="btn">📤 匯入 JSON 備份</button>
-        <button id="reset-btn" class="btn btn-danger">🔄 重置預設資料</button>
-        <input type="file" id="import-file-input" accept=".json" style="display: none;">
-        <input type="file" id="import-csv-input" accept=".csv" style="display: none;">
+      <div class="user-control">
+        <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">權限：訪客 (唯讀)</span>
+        <button id="auth-btn" class="btn btn-primary" onclick="toggleAuth()">管理員登入</button>
       </div>
+    </header>
+
+    <div class="sheet-bar">
+      <div id="sheets-container" style="display: flex; gap: 6px;"></div>
+      <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="addSheet()">+ 新增列表</button>
+      <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="copySheet()">複製列表</button>
     </div>
 
-    <!-- 頁面一：Roadmap 圖鑑表 -->
-    <div id="roadmap-tab" class="tab-content active">
-      <div id="roadmap-export-area">
-        <table id="main-roadmap-table">
-          <thead>
-            <tr id="table-header-row">
-              <th style="width: 35px;" class="no-drag"></th>
-              <!-- 動態渲染欄位頭部 -->
-            </tr>
-          </thead>
-          <tbody id="table-body">
-          </tbody>
+    <div class="tab-content">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="addRow()">新增項目</button>
+        <button class="btn" onclick="addColumn()">新增欄位</button>
+        <button class="btn btn-success" onclick="triggerExcelImport()">📥 匯入 Excel (含圖片)</button>
+        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto;">☁️ 雲端載入中...</span>
+      </div>
+
+      <div class="table-scroll-container">
+        <table>
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
         </table>
       </div>
     </div>
+  </div>
 
-    <!-- 頁面二：機台增減分析 (Analytics) -->
-    <div id="analytics-tab" class="tab-content">
-      <div class="toolbar" style="padding: 12px 20px 0 20px; justify-content: flex-end;">
-        <button id="export-image-btn" class="btn btn-success">📸 匯出分析圖表圖片 (PNG)</button>
-      </div>
-      <div id="analytics-export-area">
-        <div class="analytics-grid">
-          <div class="stat-card">
-            <div class="stat-card-title">2025 -> 2026 擴產項目</div>
-            <div id="stat-2026-exp" class="stat-card-value">0 項</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card-title">2026 2H 新增擴產項目</div>
-            <div id="stat-20262h-exp" class="stat-card-value" style="color: #38bdf8;">0 項</div>
-          </div>
-        </div>
-        <div style="padding: 0 20px 20px 20px;">
-          <h3 style="color: var(--accent); margin-top: 0;">🔍 機台擴產與異動明細分析清單</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Process / Machine</th>
-                <th>2025 基準</th>
-                <th>2026 變更內容</th>
-                <th>2026 2H 變更內容</th>
-                <th>異動狀態分類</th>
-              </tr>
-            </thead>
-            <tbody id="analytics-tbody">
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <input type="file" id="image-file-input" accept="image/*" style="display: none;">
+  <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
+
+  <!-- 登入 Modal -->
+  <div id="login-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3 style="margin: 0; color: var(--accent);">管理員登入</h3>
+      <input type="text" id="username" placeholder="請輸入帳號">
+      <input type="password" id="password" placeholder="請輸入密碼">
+      <button class="btn btn-primary" onclick="login()">登入</button>
+      <button class="btn" onclick="closeLoginModal()">取消</button>
     </div>
   </div>
 
-  <!-- 管理員登入 Modal -->
-  <div id="login-modal" class="modal-overlay">
-    <div class="modal-card">
-      <h3>🔐 管理員登入</h3>
-      <input type="email" id="login-email" class="modal-input" placeholder="管理員 Email">
-      <input type="password" id="login-password" class="modal-input" placeholder="密碼">
-      <div class="modal-actions">
-        <button id="cancel-login-btn" class="btn">取消</button>
-        <button id="do-login-btn" class="btn btn-primary">確認登入</button>
-      </div>
-    </div>
-  </div>
-
+  <!-- 載入 Firebase SDK 並代入您的金鑰 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+    // 已套用您的 Firebase 設定
     const firebaseConfig = {
-      apiKey: "AIzaSyAe38sw2PpDRgseHnz5654ZHwBfyDkgJEM",
-      authDomain: "cnclist-8735e.firebaseapp.com",
-      projectId: "cnclist-8735e",
-      storageBucket: "cnclist-8735e.firebasestorage.app",
-      messagingSenderId: "347811725447",
-      appId: "1:347811725447:web:c7acb085a649641cfeb822",
-      measurementId: "G-1T5QV75N13"
+      apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
+      authDomain: "outsourcemfg-59ca8.firebaseapp.com",
+      projectId: "outsourcemfg-59ca8",
+      storageBucket: "outsourcemfg-59ca8.firebasestorage.app",
+      messagingSenderId: "408387263887",
+      appId: "1:408387263887:web:17f80ca6c5263610cfbffa",
+      measurementId: "G-XH421GGFC9"
     };
 
+    // 初始化 Firebase
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
     const db = getFirestore(app);
+    const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
 
-    let columns = [
-      { key: 'material', label: 'Material', width: '15%' },
-      { key: 'process', label: 'Process / Machine', width: '25%' },
-      { key: 'y2025', label: '2025', width: '15%' },
-      { key: 'y2026', label: '2026', width: '20%' },
-      { key: 'y2026_2h', label: '2026 2H', width: '20%' },
-      { key: 'action', label: '操作', width: '5%', noDrag: true }
+    const defaultColumns = [
+      { key: "no", label: "No." },
+      { key: "productImg", label: "產品圖面" },
+      { key: "img", label: "示意圖" },
+      { key: "itemNo", label: "品號" },
+      { key: "itemName", label: "品名" },
+      { key: "vendor", label: "廠商" },
+      { key: "note1", label: "加工或備註" },
+      { key: "note2", label: "二次加工備註" },
+      { key: "reason", label: "未入庫原因" },
+      { key: "status", label: "發單/追蹤狀況" }
     ];
 
     const initialData = [
-      { material: "Metal: AL/SST", process: "3 Axis Milling", y2025: "38", y2026: "38", y2026_2h: "38" },
-      { material: "Metal: AL/SST", process: "Auto 3 Axis Milling", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "Turning-Milling", y2025: "10", y2026: "10", y2026_2h: "10" },
-      { material: "Metal: AL/SST", process: "Grinding", y2025: "7", y2026: "7", y2026_2h: "7" },
-      { material: "Metal: AL/SST", process: "Lapping", y2025: "6", y2026: "6", y2026_2h: "6" },
-      { material: "Metal: AL/SST", process: "Lathe", y2025: "2", y2026: "2", y2026_2h: "2" },
-      { material: "Metal: AL/SST", process: "Multi Axis Milling", y2025: "22", y2026: "22", y2026_2h: "25 (2026 1H +3)" },
-      { material: "Metal: AL/SST", process: "SAWING", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "Water Jet Cutter", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "EP(Non-Al)", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "Auto Anodizing", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "ENP(Al)", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "ENP(Non-Al)", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "TIG Welding", y2025: "3", y2026: "3", y2026_2h: "3" },
-      { material: "Metal: AL/SST", process: "E Beam Welding", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "Auto Clean Line", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "Clean Line", y2025: "1", y2026: "1", y2026_2h: "" },
-      { material: "Metal: AL/SST", process: "Auto ENP(Cylinder)", y2025: "", y2026: "1 (2025+1)", y2026_2h: "1" },
-      { material: "Metal: AL/SST", process: "Vacuum Brazing", y2025: "", y2026: "1 (2025+1)", y2026_2h: "1" },
-      { material: "Graphite", process: "3 Axis Milling", y2025: "21", y2026: "21", y2026_2h: "21" },
-      { material: "Graphite", process: "NJ: 3 Axis Milling", y2025: "10", y2026: "10", y2026_2h: "10" },
-      { material: "Graphite", process: "Turning-Milling", y2025: "2", y2026: "2", y2026_2h: "2" },
-      { material: "Graphite", process: "Grinding", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Graphite", process: "Lathe", y2025: "5", y2026: "5", y2026_2h: "5" },
-      { material: "Graphite", process: "Thermo Molding", y2025: "1", y2026: "1", y2026_2h: "3 (2026 1H +2)" },
-      { material: "Graphite", process: "SAWING", y2025: "3", y2026: "3", y2026_2h: "3" },
-      { material: "Graphite", process: "Wire Cut", y2025: "3", y2026: "3", y2026_2h: "3" },
-      { material: "Graphite", process: "Auto Clean Line", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "Graphite", process: "Lathe", y2025: "", y2026: "", y2026_2h: "1 (2026 1H +1)" },
-      { material: "Graphite", process: "Turning-Milling", y2025: "", y2026: "", y2026_2h: "1 (2026 1H +1)" },
-      { material: "W/Mo/Ta", process: "3 Axis Milling", y2025: "45", y2026: "47 (2025+2)", y2026_2h: "47" },
-      { material: "W/Mo/Ta", process: "JP: 3 Axis Milling", y2025: "", y2026: "", y2026_2h: "7 (2026 1H +7)" },
-      { material: "W/Mo/Ta", process: "Auto 3 Axis Milling", y2025: "12", y2026: "12", y2026_2h: "16 (2026 1H +4)" },
-      { material: "W/Mo/Ta", process: "Auto Lathe", y2025: "16", y2026: "16", y2026_2h: "16" },
-      { material: "W/Mo/Ta", process: "Turning-Milling", y2025: "4", y2026: "4", y2026_2h: "4" },
-      { material: "W/Mo/Ta", process: "EDM", y2025: "7", y2026: "7", y2026_2h: "7" },
-      { material: "W/Mo/Ta", process: "JP: Grinding", y2025: "", y2026: "", y2026_2h: "1 (2026 1H +1)" },
-      { material: "W/Mo/Ta", process: "Grinding", y2025: "7", y2026: "8 (2025+1)", y2026_2h: "8" },
-      { material: "W/Mo/Ta", process: "Lathe", y2025: "16", y2026: "16", y2026_2h: "17 (2026 1H +1)" },
-      { material: "W/Mo/Ta", process: "JP: Wire Cut", y2025: "", y2026: "", y2026_2h: "1 (2026 1H +1)" },
-      { material: "W/Mo/Ta", process: "Wire Cut", y2025: "48", y2026: "48", y2026_2h: "48" },
-      { material: "W/Mo/Ta", process: "Annealing", y2025: "1", y2026: "1", y2026_2h: "1" },
-      { material: "W/Mo/Ta", process: "Laser Welding", y2025: "2", y2026: "3 (2025+1)", y2026_2h: "3" },
-      { material: "W/Mo/Ta", process: "Auto Clean Line", y2025: "2", y2026: "2", y2026_2h: "2" },
-      { material: "Silicon", process: "3 Axis Milling", y2025: "22", y2026: "22", y2026_2h: "22" }
+      { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "260", note1: "50001-111", note2: "", reason: "", status: "" },
+      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" }
     ];
 
-    let roadmapData = initialData;
+    let isLoggedIn = false;
+    let currentEditImageTarget = null;
+    let workbook = [
+      { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData }
+    ];
+    let activeSheetId = "sheet_1";
 
-    const tbody = document.getElementById('table-body');
-    const headerRow = document.getElementById('table-header-row');
-    const analyticsTbody = document.getElementById('analytics-tbody');
-    const authBtn = document.getElementById('auth-btn');
-    const authStatus = document.getElementById('auth-status');
-    const loginModal = document.getElementById('login-modal');
-
-    // 自動計算頂部固定高度以利精準對齊
-    function updateStickyPosition() {
-      const headerHeight = document.getElementById('sticky-header').offsetHeight;
-      const ths = document.querySelectorAll('th');
-      ths.forEach(th => {
-        th.style.top = `${headerHeight}px`;
-      });
-    }
-
-    window.addEventListener('resize', updateStickyPosition);
-
-    const docRef = doc(db, "capacity_roadmap", "main_data");
-    onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        roadmapData = data.list || [];
-        if (data.columns) {
-          columns = data.columns;
-        }
-        renderTableHeader();
-        renderTable();
-        renderAnalytics();
-      } else {
-        roadmapData = initialData;
-        renderTableHeader();
-        renderTable();
-        renderAnalytics();
-      }
-    }, (error) => {
-      console.warn("Firestore 監聽通知：", error.message);
-    });
-
-    async function saveToFirestore(data, cols = columns) {
-      if (!auth.currentUser) {
-        alert("請先進行管理員登入，才能將資料同步至雲端！");
-        return;
-      }
+    // 儲存資料到 Firestore 雲端資料庫
+    async function saveData() {
+      const statusEl = document.getElementById('sync-status');
+      statusEl.innerText = "☁️ 同步至雲端中...";
       try {
-        await setDoc(docRef, { list: data, columns: cols });
+        await setDoc(DOC_REF, {
+          workbook: workbook,
+          activeSheetId: activeSheetId,
+          updatedAt: new Date().toISOString()
+        });
+        statusEl.innerText = "✅ 已同步雲端";
       } catch (e) {
-        console.error("雲端同步失敗: ", e);
-        alert(`資料儲存至雲端失敗：${e.message}`);
+        console.error("雲端儲存失敗：", e);
+        statusEl.innerText = "❌ 雲端同步失敗";
       }
     }
 
-    window.switchTab = (tabId, e) => {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-      e.target.classList.add('active');
-      document.getElementById(tabId).classList.add('active');
-
-      if (tabId === 'analytics-tab') {
-        renderAnalytics();
-      }
-      setTimeout(updateStickyPosition, 50);
-    };
-
-    function renderTableHeader() {
-      headerRow.innerHTML = '<th style="width: 35px;" class="no-drag"></th>';
-      
-      columns.forEach((col, index) => {
-        const th = document.createElement('th');
-        th.style.width = col.width || 'auto';
-
-        const container = document.createElement('div');
-        container.className = 'th-header-content';
-
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'th-title';
-        titleSpan.innerText = col.label;
-        titleSpan.title = "雙擊此處修改欄位名稱";
-        titleSpan.ondblclick = () => editColumnName(index);
-
-        container.appendChild(titleSpan);
-
-        if (col.key !== 'material' && col.key !== 'process' && col.key !== 'action') {
-          const delBtn = document.createElement('button');
-          delBtn.className = 'btn-del-col';
-          delBtn.innerText = '🗑️';
-          delBtn.title = '刪除此欄位';
-          delBtn.onclick = (e) => {
-            e.stopPropagation();
-            deleteColumn(index);
-          };
-          container.appendChild(delBtn);
-        }
-
-        th.appendChild(container);
-
-        if (!col.noDrag) {
-          th.classList.add('draggable-col');
-          if (auth.currentUser) {
-            th.draggable = true;
-            th.addEventListener('dragstart', (e) => handleColDragStart(e, index));
-            th.addEventListener('dragover', handleColDragOver);
-            th.addEventListener('drop', (e) => handleColDrop(e, index));
-            th.addEventListener('dragleave', handleColDragLeave);
-          }
+    // 從 Firestore 雲端讀取資料
+    async function loadDataFromCloud() {
+      const statusEl = document.getElementById('sync-status');
+      try {
+        const docSnap = await getDoc(DOC_REF);
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          workbook = cloudData.workbook || workbook;
+          activeSheetId = cloudData.activeSheetId || workbook[0].id;
+          statusEl.innerText = "✅ 雲端資料載入完成";
         } else {
-          th.style.textAlign = 'center';
+          await saveData();
+          statusEl.innerText = "✅ 建立雲端預設資料";
         }
-        headerRow.appendChild(th);
-      });
-
-      setTimeout(updateStickyPosition, 10);
+      } catch (e) {
+        console.error("雲端讀取失敗：", e);
+        statusEl.innerText = "⚠️ 載入失敗 (請檢查金鑰)";
+      }
+      renderSheets();
+      renderTable();
     }
 
-    window.editColumnName = (index) => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能修改欄位名稱！");
-        return;
-      }
-      const oldLabel = columns[index].label;
-      const newLabel = prompt("請輸入新的欄位名稱：", oldLabel);
-      if (newLabel !== null && newLabel.trim() !== "") {
-        columns[index].label = newLabel.trim();
-        saveToFirestore(roadmapData, columns);
-      }
-    };
+    function getActiveSheet() {
+      return workbook.find(s => s.id === activeSheetId) || workbook[0];
+    }
 
-    document.getElementById('add-col-btn').onclick = () => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能新增欄位！");
-        return;
+    function checkAuth() {
+      if (!isLoggedIn) {
+        alert("權限不足：請先點擊右上角「管理員登入」進行登入！");
+        return false;
       }
-      const colLabel = prompt("請輸入新欄位名稱 (例如：2027 預估)：", "新欄位");
-      if (!colLabel) return;
+      return true;
+    }
 
-      const colKey = 'col_' + Date.now();
-      const actionIndex = columns.findIndex(c => c.key === 'action');
-      const newColObj = { key: colKey, label: colLabel.trim(), width: '15%' };
-
-      if (actionIndex !== -1) {
-        columns.splice(actionIndex, 0, newColObj);
+    window.toggleAuth = function() {
+      if (isLoggedIn) {
+        isLoggedIn = false;
+        document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
+        document.getElementById('auth-btn').innerText = "管理員登入";
+        alert("已成功登出");
       } else {
-        columns.push(newColObj);
-      }
-
-      saveToFirestore(roadmapData, columns);
-    };
-
-    window.deleteColumn = (index) => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能刪除欄位！");
-        return;
-      }
-      const col = columns[index];
-      if (confirm(`確定要刪除欄位「${col.label}」嗎？這將會清除所有資料列中該欄位的數據！`)) {
-        columns.splice(index, 1);
-        saveToFirestore(roadmapData, columns);
+        document.getElementById('login-modal').style.display = 'flex';
       }
     };
 
-    let draggedColIndex = null;
-    function handleColDragStart(e, index) {
-      draggedColIndex = index;
-      e.dataTransfer.effectAllowed = 'move';
+    window.closeLoginModal = function() {
+      document.getElementById('login-modal').style.display = 'none';
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+    };
+
+    window.login = function() {
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
+      
+      if (user === 'n1693131@gmail.com' && pass === 'Breakheart1a') {
+        isLoggedIn = true;
+        document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
+        document.getElementById('auth-btn').innerText = "登出";
+        closeLoginModal();
+      } else {
+        alert("帳號或密碼錯誤！");
+      }
+    };
+
+    function renderSheets() {
+      const container = document.getElementById('sheets-container');
+      container.innerHTML = '';
+      workbook.forEach(sheet => {
+        const tab = document.createElement('div');
+        tab.className = `sheet-tab ${sheet.id === activeSheetId ? 'active' : ''}`;
+        tab.innerHTML = `
+          <span ondblclick="renameSheet('${sheet.id}')">${sheet.name}</span>
+          ${workbook.length > 1 ? `<span class="sheet-close" onclick="deleteSheet('${sheet.id}', event)">✕</span>` : ''}
+        `;
+        tab.onclick = (e) => {
+          if (e.target.classList.contains('sheet-close')) return;
+          activeSheetId = sheet.id;
+          saveData();
+          renderSheets();
+          renderTable();
+        };
+        container.appendChild(tab);
+      });
     }
-    function handleColDragOver(e) {
-      if (e.preventDefault) e.preventDefault();
-      e.currentTarget.classList.add('drag-over-col');
-      return false;
-    }
-    function handleColDragLeave(e) {
-      e.currentTarget.classList.remove('drag-over-col');
-    }
-    function handleColDrop(e, targetIndex) {
+
+    window.addSheet = function() {
+      if (!checkAuth()) return;
+      const newId = 'sheet_' + Date.now();
+      const newSheet = {
+        id: newId,
+        name: `新列表 ${workbook.length + 1}`,
+        columns: JSON.parse(JSON.stringify(defaultColumns)),
+        data: []
+      };
+      workbook.push(newSheet);
+      activeSheetId = newId;
+      saveData();
+      renderSheets();
+      renderTable();
+    };
+
+    window.copySheet = function() {
+      if (!checkAuth()) return;
+      const current = getActiveSheet();
+      const newId = 'sheet_' + Date.now();
+      workbook.push({
+        id: newId,
+        name: `${current.name} (副本)`,
+        columns: JSON.parse(JSON.stringify(current.columns)),
+        data: JSON.parse(JSON.stringify(current.data))
+      });
+      activeSheetId = newId;
+      saveData();
+      renderSheets();
+      renderTable();
+    };
+
+    window.renameSheet = function(sheetId) {
+      if (!checkAuth()) return;
+      const sheet = workbook.find(s => s.id === sheetId);
+      const newName = prompt("請輸入列表名稱：", sheet.name);
+      if (newName) {
+        sheet.name = newName.trim();
+        saveData();
+        renderSheets();
+      }
+    };
+
+    window.deleteSheet = function(sheetId, e) {
       e.stopPropagation();
-      e.preventDefault();
-      e.currentTarget.classList.remove('drag-over-col');
-
-      if (draggedColIndex !== null && draggedColIndex !== targetIndex) {
-        const movedCol = columns.splice(draggedColIndex, 1)[0];
-        columns.splice(targetIndex, 0, movedCol);
-        renderTableHeader();
+      if (!checkAuth()) return;
+      if (workbook.length <= 1) return;
+      if (confirm("確定要刪除此列表嗎？")) {
+        workbook = workbook.filter(s => s.id !== sheetId);
+        if (activeSheetId === sheetId) activeSheetId = workbook[0].id;
+        saveData();
+        renderSheets();
         renderTable();
-        saveToFirestore(roadmapData, columns);
       }
-      draggedColIndex = null;
-      return false;
+    };
+
+    function isImageUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      const trimmed = url.trim().toLowerCase();
+      return trimmed.startsWith('data:image') || trimmed.startsWith('http://') || trimmed.startsWith('https://');
     }
 
     function renderTable() {
+      const sheet = getActiveSheet();
+      const thead = document.getElementById('table-head');
+      const tbody = document.getElementById('table-body');
+
+      let headHtml = '<tr>';
+      sheet.columns.forEach((col, index) => {
+        headHtml += `
+          <th class="editable" ondblclick="renameColumn(${index})">
+            ${col.label}
+            <span class="col-delete-btn" title="刪除此欄位" onclick="deleteColumn(${index}, event)">✕</span>
+          </th>`;
+      });
+      headHtml += `<th class="text-center">操作</th></tr>`;
+      thead.innerHTML = headHtml;
+
       tbody.innerHTML = '';
-
-      const materialSpanMap = [];
-      let i = 0;
-      while (i < roadmapData.length) {
-        const currentMat = roadmapData[i].material || '';
-        let span = 1;
-        while (i + span < roadmapData.length && (roadmapData[i + span].material || '') === currentMat) {
-          span++;
-        }
-        materialSpanMap[i] = span;
-        for (let j = 1; j < span; j++) {
-          materialSpanMap[i + j] = 0;
-        }
-        i += span;
-      }
-
-      roadmapData.forEach((row, index) => {
+      sheet.data.forEach((row, rowIndex) => {
         const tr = document.createElement('tr');
-
-        if (auth.currentUser) {
-          tr.draggable = true;
-          tr.addEventListener('dragstart', (e) => handleRowDragStart(e, index));
-          tr.addEventListener('dragover', handleRowDragOver);
-          tr.addEventListener('drop', (e) => handleRowDrop(e, index));
-          tr.addEventListener('dragleave', handleRowDragLeave);
-        }
-
-        const handleTd = document.createElement('td');
-        handleTd.className = 'drag-handle';
-        handleTd.innerHTML = '⋮⋮';
-        tr.appendChild(handleTd);
-
-        columns.forEach(col => {
-          if (col.key === 'material') {
-            const span = materialSpanMap[index];
-            if (span > 0) {
-              const td = document.createElement('td');
-              td.className = 'editable material-header';
-              td.rowSpan = span;
-              td.innerText = row.material || '-';
-              td.ondblclick = () => editMaterialCategory(index);
-              tr.appendChild(td);
-            }
-          } else if (col.key === 'action') {
-            const td = document.createElement('td');
-            td.style.textAlign = 'center';
-            td.innerHTML = `<button class="action-btn" onclick="deleteRow(${index})" title="刪除此行">🗑️</button>`;
-            tr.appendChild(td);
+        let bodyHtml = '';
+        sheet.columns.forEach(col => {
+          const val = row[col.key] !== undefined ? row[col.key] : '';
+          
+          if (col.key === 'productImg' || isImageUrl(val)) {
+            const imgDisplay = isImageUrl(val) 
+              ? `<img src="${val.trim()}" class="product-img-preview" alt="圖面" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'color:var(--danger); font-size:0.8rem;\\'>圖片連結失效</span>';">` 
+              : `<span style="color:var(--text-muted); font-size:0.8rem;">+ 上傳/設定圖片</span>`;
+            bodyHtml += `<td class="editable text-center" ondblclick="editProductImage(${rowIndex}, '${col.key}')">${imgDisplay}</td>`;
           } else {
-            const td = document.createElement('td');
-            td.className = 'editable';
-            td.innerText = row[col.key] || '-';
-            td.ondblclick = () => editCell(index, col.key);
-            tr.appendChild(td);
+            bodyHtml += `<td class="editable" ondblclick="editCell(${rowIndex}, '${col.key}')">${val}</td>`;
           }
         });
-
+        bodyHtml += `<td class="text-center"><button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteRow(${rowIndex})">刪除</button></td>`;
+        tr.innerHTML = bodyHtml;
         tbody.appendChild(tr);
       });
     }
 
-    let draggedRowIndex = null;
-    function handleRowDragStart(e, index) {
-      draggedRowIndex = index;
-      e.dataTransfer.effectAllowed = 'move';
-    }
-    function handleRowDragOver(e) {
-      if (e.preventDefault) e.preventDefault();
-      e.currentTarget.classList.add('drag-over-row');
-      return false;
-    }
-    function handleRowDragLeave(e) {
-      e.currentTarget.classList.remove('drag-over-row');
-    }
-    function handleRowDrop(e, targetIndex) {
-      e.stopPropagation();
-      e.preventDefault();
-      e.currentTarget.classList.remove('drag-over-row');
-
-      if (draggedRowIndex !== null && draggedRowIndex !== targetIndex) {
-        const movedRow = roadmapData.splice(draggedRowIndex, 1)[0];
-        roadmapData.splice(targetIndex, 0, movedRow);
+    window.renameColumn = function(colIndex) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const oldLabel = sheet.columns[colIndex].label;
+      const newLabel = prompt("請輸入新的欄位名稱：", oldLabel);
+      
+      if (newLabel !== null && newLabel.trim() !== "") {
+        sheet.columns[colIndex].label = newLabel.trim();
+        saveData();
         renderTable();
-        saveToFirestore(roadmapData, columns);
-      }
-      draggedRowIndex = null;
-      return false;
-    }
-
-    function renderAnalytics() {
-      analyticsTbody.innerHTML = '';
-      let exp2026Count = 0;
-      let exp20262hCount = 0;
-
-      roadmapData.forEach(row => {
-        const isChanged2026 = row.y2026 && row.y2026 !== row.y2025;
-        const isChanged20262h = row.y2026_2h && row.y2026_2h !== row.y2026;
-
-        if (isChanged2026 || isChanged20262h || !row.y2025) {
-          if (isChanged2026) exp2026Count++;
-          if (isChanged20262h) exp20262hCount++;
-
-          let badgeHtml = '';
-          if (!row.y2025 && (row.y2026 || row.y2026_2h)) {
-            badgeHtml = `<span class="delta-badge delta-new">✨ 全新導入機台</span>`;
-          } else {
-            badgeHtml = `<span class="delta-badge delta-plus">📈 產能擴充/異動</span>`;
-          }
-
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td style="font-weight: 700; color: var(--accent);">${row.material || ''}</td>
-            <td><strong>${row.process || ''}</strong></td>
-            <td>${row.y2025 || '<span style="color:var(--text-muted);">無 (0)</span>'}</td>
-            <td style="color: ${isChanged2026 ? '#38bdf8' : 'inherit'}; font-weight: ${isChanged2026 ? '700' : 'normal'};">${row.y2026 || '-'}</td>
-            <td style="color: ${isChanged20262h ? '#34d399' : 'inherit'}; font-weight: ${isChanged20262h ? '700' : 'normal'};">${row.y2026_2h || '-'}</td>
-            <td>${badgeHtml}</td>
-          `;
-          analyticsTbody.appendChild(tr);
-        }
-      });
-
-      document.getElementById('stat-2026-exp').innerText = `${exp2026Count} 項機台擴增`;
-      document.getElementById('stat-20262h-exp').innerText = `${exp20262hCount} 項機台擴增`;
-    }
-
-    document.getElementById('export-image-btn').onclick = () => {
-      const exportArea = document.getElementById('analytics-export-area');
-      const exportBtn = document.getElementById('export-image-btn');
-
-      exportBtn.innerText = "⏳ 圖片生成中...";
-      exportBtn.disabled = true;
-
-      html2canvas(exportArea, { backgroundColor: '#1e293b', scale: 2 }).then(canvas => {
-        const image = canvas.toDataURL("image/png");
-        const link = document.createElement('a');
-        link.href = image;
-        link.download = `Capacity_Delta_Analytics_${new Date().toISOString().slice(0,10)}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        exportBtn.innerText = "📸 匯出分析圖表圖片 (PNG)";
-        exportBtn.disabled = false;
-      }).catch(err => {
-        alert("匯出圖片失敗：" + err);
-        exportBtn.innerText = "📸 匯出分析圖表圖片 (PNG)";
-        exportBtn.disabled = false;
-      });
-    };
-
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        document.body.classList.remove("read-only");
-        authStatus.innerText = `已登入 (${user.email})`;
-        authBtn.innerText = "登出";
-        authBtn.classList.remove("btn-primary");
-        authBtn.classList.add("btn-danger");
-      } else {
-        document.body.classList.add("read-only");
-        authStatus.innerText = "狀態：唯讀模式";
-        authBtn.innerText = "管理員登入";
-        authBtn.classList.remove("btn-danger");
-        authBtn.classList.add("btn-primary");
-      }
-      renderTableHeader();
-      renderTable();
-    });
-
-    authBtn.onclick = async () => {
-      if (auth.currentUser) {
-        await signOut(auth);
-      } else {
-        loginModal.style.display = 'flex';
       }
     };
 
-    document.getElementById('cancel-login-btn').onclick = () => {
-      loginModal.style.display = 'none';
+    window.deleteColumn = function(colIndex, e) {
+      if (e) e.stopPropagation();
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const col = sheet.columns[colIndex];
+      
+      if (confirm(`確定要刪除欄位「${col.label}」嗎？此操作無法復原！`)) {
+        sheet.columns.splice(colIndex, 1);
+        saveData();
+        renderTable();
+      }
     };
 
-    const doLogin = async () => {
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
+    window.triggerExcelImport = function() {
+      if (!checkAuth()) return;
+      document.getElementById('excel-file-input').click();
+    };
 
-      if (!email || !password) {
-        alert("請輸入 Email 與密碼！");
-        return;
-      }
+    document.getElementById('excel-file-input').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
 
       try {
-        await signInWithEmailAndPassword(auth, email, password);
-        loginModal.style.display = 'none';
-        document.getElementById('login-email').value = '';
-        document.getElementById('login-password').value = '';
-      } catch (err) {
-        alert("登入失敗：帳號或密碼錯誤！(" + err.message + ")");
-      }
-    };
+        const arrayBuffer = await file.arrayBuffer();
+        const wb = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        const worksheet = wb.Sheets[firstSheetName];
+        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-    document.getElementById('do-login-btn').onclick = doLogin;
-    document.getElementById('login-password').addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') doLogin();
+        if (!jsonRows || jsonRows.length === 0) {
+          alert("Excel 檔案內容為空！");
+          return;
+        }
+
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const imagesMap = {}; 
+        
+        const mediaFiles = Object.keys(zip.files).filter(path => path.startsWith('xl/media/'));
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const path = mediaFiles[i];
+          const fileData = await zip.files[path].async('base64');
+          const ext = path.split('.').pop().toLowerCase();
+          const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+          imagesMap[i] = `data:${mime};base64,${fileData}`;
+        }
+
+        const headerRow = jsonRows[0] || [];
+        const newColumns = [];
+        
+        headerRow.forEach((colName, index) => {
+          let key = `col_${index}`;
+          const name = String(colName).trim();
+          
+          if (name.toUpperCase().includes("SEQ") || name.toUpperCase().includes("NO")) key = "no";
+          else if (name.includes("圖面") || name.includes("小圖") || name.includes("縮圖") || name.includes("圖檔")) key = "productImg";
+          else if (name.includes("示意")) key = "img";
+          else if (name.includes("品號")) key = "itemNo";
+          else if (name.includes("品名")) key = "itemName";
+          else if (name.includes("廠商")) key = "vendor";
+          else if (name.includes("二次")) key = "note2";
+          else if (name.includes("加工") || name.includes("備註")) key = "note1";
+          else if (name.includes("未入庫")) key = "reason";
+          else if (name.includes("狀況") || name.includes("發單")) key = "status";
+
+          newColumns.push({ key: key, label: name });
+        });
+
+        const newData = [];
+        let imgIndex = 0;
+
+        for (let i = 1; i < jsonRows.length; i++) {
+          const rowData = jsonRows[i];
+          if (!rowData || rowData.length === 0) continue;
+
+          const rowObj = {};
+          newColumns.forEach((col, cIdx) => {
+            rowObj[col.key] = rowData[cIdx] !== undefined ? String(rowData[cIdx]) : "";
+          });
+
+          if (!rowObj['productImg'] && imagesMap[imgIndex]) {
+            rowObj['productImg'] = imagesMap[imgIndex];
+            imgIndex++;
+          }
+
+          newData.push(rowObj);
+        }
+
+        const currentSheet = getActiveSheet();
+        currentSheet.columns = newColumns.length > 0 ? newColumns : defaultColumns;
+        currentSheet.data = newData;
+
+        saveData();
+        renderTable();
+        alert("Excel 檔案已成功匯入並同步至雲端！");
+
+      } catch (err) {
+        console.error(err);
+        alert("匯入失敗，請確認檔案格式是否正確。");
+      } finally {
+        this.value = '';
+      }
     });
 
-    window.editMaterialCategory = (index) => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能修改資料！");
-        return;
-      }
+    window.editProductImage = function(rowIndex, colKey = 'productImg') {
+      if (!checkAuth()) return;
+      currentEditImageTarget = { rowIndex, colKey };
+      
+      const sheet = getActiveSheet();
+      const currentVal = sheet.data[rowIndex][colKey] || '';
 
-      const oldVal = roadmapData[index].material || '';
-      const newVal = prompt("請輸入新的 Material 類別名稱：", oldVal);
-      if (newVal !== null && newVal.trim() !== "") {
-        roadmapData[index].material = newVal.trim();
-        saveToFirestore(roadmapData, columns);
+      const choice = prompt("請選擇圖片來源：\n1. 輸入 1 選擇本機圖片檔上傳\n2. 直接貼上圖片網址 (URL)\n3. 輸入 0 清除圖片", currentVal || "1");
+      
+      if (choice === "1") {
+        document.getElementById('image-file-input').click();
+      } else if (choice === "0") {
+        sheet.data[rowIndex][colKey] = "";
+        saveData();
+        renderTable();
+      } else if (choice && choice.trim() !== "") {
+        sheet.data[rowIndex][colKey] = choice.trim();
+        saveData();
+        renderTable();
       }
     };
 
-    window.editCell = (index, key) => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能修改資料！");
-        return;
+    document.getElementById('image-file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file && currentEditImageTarget !== null) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const sheet = getActiveSheet();
+          const { rowIndex, colKey } = currentEditImageTarget;
+          sheet.data[rowIndex][colKey] = evt.result;
+          saveData();
+          renderTable();
+          currentEditImageTarget = null;
+        };
+        reader.readAsDataURL(file);
       }
+      this.value = '';
+    });
 
-      const colObj = columns.find(c => c.key === key);
-      const label = colObj ? colObj.label : key;
-
-      const currentVal = roadmapData[index][key] || '';
-      const newVal = prompt(`修改 ${label}：`, currentVal);
-
+    window.editCell = function(rowIndex, colKey) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const oldVal = sheet.data[rowIndex][colKey] || '';
+      const newVal = prompt("請輸入修改內容：", oldVal);
       if (newVal !== null) {
-        roadmapData[index][key] = newVal.trim();
-        saveToFirestore(roadmapData, columns);
+        sheet.data[rowIndex][colKey] = newVal.trim();
+        saveData();
+        renderTable();
       }
     };
 
-    window.deleteRow = (index) => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能刪除資料！");
-        return;
-      }
-
-      if (confirm(`確定要刪除「${roadmapData[index].process || '此筆資料'}」這一列嗎？`)) {
-        roadmapData.splice(index, 1);
-        saveToFirestore(roadmapData, columns);
-      }
-    };
-
-    document.getElementById('add-row-btn').onclick = () => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能新增資料！");
-        return;
-      }
-
-      const material = prompt("請輸入 Material 類別 (例如 Metal: AL/SST, Graphite 等)：", "Metal: AL/SST");
-      if (!material) return;
-      const process = prompt("請輸入 Process / Machine 名稱：", "New Machine");
-      if (!process) return;
-
-      roadmapData.push({
-        material: material.trim(),
-        process: process.trim(),
-        y2025: "0",
-        y2026: "0",
-        y2026_2h: "0"
+    window.addRow = function() {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      const newRow = { no: sheet.data.length + 1, productImg: "", img: "📐" };
+      sheet.columns.forEach(col => {
+        if (!newRow[col.key]) newRow[col.key] = "-";
       });
-
-      saveToFirestore(roadmapData, columns);
+      sheet.data.push(newRow);
+      saveData();
+      renderTable();
     };
 
-    document.getElementById('export-json-btn').onclick = () => {
-      const exportObj = { columns, list: roadmapData };
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `Capacity_Roadmap_Backup_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    };
-
-    const importBtn = document.getElementById('import-btn');
-    const importFileInput = document.getElementById('import-file-input');
-
-    importBtn.onclick = () => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能匯入備份！");
-        return;
-      }
-      importFileInput.click();
-    };
-
-    importFileInput.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const imported = JSON.parse(event.target.result);
-          if (Array.isArray(imported)) {
-            roadmapData = imported;
-          } else if (imported.list) {
-            roadmapData = imported.list;
-            if (imported.columns) columns = imported.columns;
-          } else {
-            alert("格式不符！請上傳正確的 Roadmap JSON 檔案。");
-            return;
-          }
-          saveToFirestore(roadmapData, columns);
-          alert("JSON 資料成功匯入雲端！");
-        } catch (err) {
-          alert("無法讀取此 JSON 檔案！");
-        }
-        importFileInput.value = '';
-      };
-      reader.readAsText(file);
-    };
-
-    const importCsvBtn = document.getElementById('import-csv-btn');
-    const importCsvInput = document.getElementById('import-csv-input');
-
-    importCsvBtn.onclick = () => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能匯入 CSV！");
-        return;
-      }
-      importCsvInput.click();
-    };
-
-    importCsvInput.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const text = event.target.result;
-          const rows = parseCSV(text);
-          if (rows.length < 2) {
-            alert("CSV 內容無有效數據！");
-            return;
-          }
-
-          const headers = rows[0].map(h => h.trim().toLowerCase());
-          const matIdx = headers.findIndex(h => h.includes('material'));
-          const procIdx = headers.findIndex(h => h.includes('process') || h.includes('machine'));
-          const y2025Idx = headers.findIndex(h => h.includes('2025'));
-          const y2026Idx = headers.findIndex(h => h.includes('2026') && !h.includes('2h'));
-          const y20262hIdx = headers.findIndex(h => h.includes('2026 2h') || h.includes('2026_2h') || h.includes('2h'));
-
-          const parsedList = [];
-          for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            if (!row || row.length === 0 || (row.length === 1 && !row[0].trim())) continue;
-
-            parsedList.push({
-              material: matIdx !== -1 && row[matIdx] ? row[matIdx].trim() : '',
-              process: procIdx !== -1 && row[procIdx] ? row[procIdx].trim() : '',
-              y2025: y2025Idx !== -1 && row[y2025Idx] ? row[y2025Idx].trim() : '',
-              y2026: y2026Idx !== -1 && row[y2026Idx] ? row[y2026Idx].trim() : '',
-              y2026_2h: y20262hIdx !== -1 && row[y20262hIdx] ? row[y20262hIdx].trim() : ''
-            });
-          }
-
-          if (parsedList.length > 0) {
-            roadmapData = parsedList;
-            saveToFirestore(roadmapData, columns);
-            alert(`成功匯入 ${parsedList.length} 筆 CSV 資料！`);
-          } else {
-            alert("未能成功解析出資料，請確認 CSV 格式。");
-          }
-        } catch (err) {
-          alert("解析 CSV 檔案時出錯：" + err.message);
-        }
-        importCsvInput.value = '';
-      };
-      reader.readAsText(file);
-    };
-
-    function parseCSV(text) {
-      let p = '', c = '', r = [];
-      let q = false;
-      let row = [''];
-      for (let i = 0; i < text.length; i++) {
-        c = text[i];
-        p = text[i - 1];
-        if (c === '"') {
-          if (q && text[i + 1] === '"') {
-            row[row.length - 1] += '"';
-            i++;
-          } else {
-            q = !q;
-          }
-        } else if (c === ',' && !q) {
-          row.push('');
-        } else if ((c === '\r' || c === '\n') && !q) {
-          if (c === '\r' && text[i + 1] === '\n') {
-            i++;
-          }
-          r.push(row);
-          row = [''];
-        } else {
-          row[row.length - 1] += c;
-        }
-      }
-      if (row.length > 1 || row[0] !== '') {
-        r.push(row);
-      }
-      return r;
-    }
-
-    document.getElementById('reset-btn').onclick = () => {
-      if (!auth.currentUser) {
-        alert("權限不足：必須登入管理員帳號才能重置資料！");
-        return;
-      }
-
-      if (confirm("警告：這將會清除雲端上的所有修改，恢復成預設數值與預設欄位！確定要重置嗎？")) {
-        roadmapData = [...initialData];
-        columns = [
-          { key: 'material', label: 'Material', width: '15%' },
-          { key: 'process', label: 'Process / Machine', width: '25%' },
-          { key: 'y2025', label: '2025', width: '15%' },
-          { key: 'y2026', label: '2026', width: '20%' },
-          { key: 'y2026_2h', label: '2026 2H', width: '20%' },
-          { key: 'action', label: '操作', width: '5%', noDrag: true }
-        ];
-        saveToFirestore(roadmapData, columns);
+    window.addColumn = function() {
+      if (!checkAuth()) return;
+      const colName = prompt("請輸入新欄位名稱：");
+      if (colName) {
+        const sheet = getActiveSheet();
+        const key = 'custom_' + Date.now();
+        sheet.columns.push({ key: key, label: colName });
+        saveData();
+        renderTable();
       }
     };
+
+    window.deleteRow = function(rowIndex) {
+      if (!checkAuth()) return;
+      const sheet = getActiveSheet();
+      if (confirm("確定刪除此列嗎？")) {
+        sheet.data.splice(rowIndex, 1);
+        saveData();
+        renderTable();
+      }
+    };
+
+    // 啟動時從 Firebase 載入資料
+    loadDataFromCloud();
   </script>
 </body>
 </html>
