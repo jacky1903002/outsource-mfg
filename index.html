@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>委外廠商製作進度追蹤表 (雲端版)</title>
-  <!-- 引入 SheetJS 與 JSZip 套件 -->
+  <title>委外廠商製作進度追蹤表 (雲端進階版)</title>
+  <!-- 引入 SheetJS、JSZip 與 Chart.js 套件 -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <style>
     :root {
@@ -134,19 +135,20 @@
 
     .toolbar {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       padding: 12px 16px;
       background-color: var(--card-bg);
       border-bottom: 1px solid var(--border-color);
       align-items: center;
       flex-shrink: 0;
+      flex-wrap: wrap;
     }
 
     .btn {
       background-color: var(--card-bg);
       color: var(--text-main);
       border: 1px solid var(--border-color);
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
@@ -159,6 +161,8 @@
     .btn-primary:hover { background-color: #0369a1; color: #fff; }
     .btn-success { background-color: #059669; color: #fff; border: none; }
     .btn-success:hover { background-color: #047857; color: #fff; }
+    .btn-warning { background-color: #d97706; color: #fff; border: none; }
+    .btn-warning:hover { background-color: #b45309; color: #fff; }
     .btn-danger { background-color: var(--danger); color: #fff; border: none; }
 
     .table-scroll-container {
@@ -185,6 +189,19 @@
       top: 0;
       z-index: 10;
       white-space: nowrap;
+      cursor: move;
+    }
+
+    th.dragging, tr.dragging {
+      opacity: 0.5;
+      background-color: #334155;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      color: var(--text-muted);
+      margin-right: 8px;
+      font-weight: bold;
     }
 
     .col-delete-btn {
@@ -237,10 +254,14 @@
       border: 1px solid var(--border-color);
       padding: 24px;
       border-radius: 8px;
-      width: 320px;
+      width: 340px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+    .modal-large {
+      width: 700px;
+      max-width: 90vw;
     }
     .modal input {
       padding: 8px 12px;
@@ -275,9 +296,12 @@
 
     <div class="tab-content">
       <div class="toolbar">
-        <button class="btn btn-primary" onclick="addRow()">新增項目</button>
-        <button class="btn" onclick="addColumn()">新增欄位</button>
-        <button class="btn btn-success" onclick="triggerExcelImport()">📥 匯入 Excel (含圖片)</button>
+        <button class="btn btn-primary" onclick="addRow()">+ 新增項目</button>
+        <button class="btn" onclick="addColumn()">+ 新增欄位</button>
+        <button class="btn btn-success" onclick="triggerExcelImport()">📥 匯入 Excel</button>
+        <button class="btn btn-success" onclick="triggerCSVImport()">📥 匯入 CSV</button>
+        <button class="btn btn-warning" onclick="exportCSV()">📤 匯出 CSV</button>
+        <button class="btn btn-primary" style="background-color: #8b5cf6;" onclick="openAnalysisModal()">📊 廠商進度分析</button>
         <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto;">☁️ 雲端載入中...</span>
       </div>
 
@@ -292,6 +316,7 @@
 
   <input type="file" id="image-file-input" accept="image/*" style="display: none;">
   <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
+  <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
 
   <!-- 登入 Modal -->
   <div id="login-modal" class="modal-backdrop">
@@ -304,12 +329,22 @@
     </div>
   </div>
 
-  <!-- 載入 Firebase SDK 並代入您的金鑰 -->
+  <!-- 分析圖表 Modal -->
+  <div id="analysis-modal" class="modal-backdrop">
+    <div class="modal modal-large">
+      <h3 style="margin: 0; color: var(--accent);">📊 委外廠商進度與完成率分析</h3>
+      <div style="display: flex; gap: 16px; min-height: 300px; justify-content: center; align-items: center;">
+        <div style="flex: 1; height: 300px;"><canvas id="vendorStatusChart"></canvas></div>
+      </div>
+      <button class="btn" onclick="closeAnalysisModal()">關閉分析</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 已套用您的 Firebase 設定
     const firebaseConfig = {
       apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
       authDomain: "outsourcemfg-59ca8.firebaseapp.com",
@@ -320,7 +355,6 @@
       measurementId: "G-XH421GGFC9"
     };
 
-    // 初始化 Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
@@ -339,8 +373,8 @@
     ];
 
     const initialData = [
-      { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "260", note1: "50001-111", note2: "", reason: "", status: "" },
-      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "260", note1: "50001-112", note2: "", reason: "", status: "" }
+      { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "廠商A", note1: "50001-111", note2: "", reason: "", status: "已完成入庫" },
+      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "廠商B", note1: "50001-112", note2: "", reason: "缺料延遲", status: "加工中" }
     ];
 
     let isLoggedIn = false;
@@ -349,6 +383,7 @@
       { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData }
     ];
     let activeSheetId = "sheet_1";
+    let myChart = null;
 
     // 儲存資料到 Firestore 雲端資料庫
     async function saveData() {
@@ -367,7 +402,7 @@
       }
     }
 
-    // 從 Firestore 雲端讀取資料
+    // 從 Firestore 讀取資料
     async function loadDataFromCloud() {
       const statusEl = document.getElementById('sync-status');
       try {
@@ -515,15 +550,16 @@
       return trimmed.startsWith('data:image') || trimmed.startsWith('http://') || trimmed.startsWith('https://');
     }
 
+    // 渲染表格 (包含拖曳事件繫結)
     function renderTable() {
       const sheet = getActiveSheet();
       const thead = document.getElementById('table-head');
       const tbody = document.getElementById('table-body');
 
-      let headHtml = '<tr>';
+      let headHtml = '<tr><th style="width: 40px; text-align:center;">拖拖</th>';
       sheet.columns.forEach((col, index) => {
         headHtml += `
-          <th class="editable" ondblclick="renameColumn(${index})">
+          <th draggable="true" data-col-idx="${index}" class="editable" ondblclick="renameColumn(${index})">
             ${col.label}
             <span class="col-delete-btn" title="刪除此欄位" onclick="deleteColumn(${index}, event)">✕</span>
           </th>`;
@@ -534,7 +570,10 @@
       tbody.innerHTML = '';
       sheet.data.forEach((row, rowIndex) => {
         const tr = document.createElement('tr');
-        let bodyHtml = '';
+        tr.draggable = true;
+        tr.dataset.rowIdx = rowIndex;
+
+        let bodyHtml = `<td class="drag-handle text-center">⋮⋮</td>`;
         sheet.columns.forEach(col => {
           const val = row[col.key] !== undefined ? row[col.key] : '';
           
@@ -551,14 +590,214 @@
         tr.innerHTML = bodyHtml;
         tbody.appendChild(tr);
       });
+
+      bindDragEvents();
     }
 
+    // 表格欄位/列位拖曳搬移事件處理
+    function bindDragEvents() {
+      const sheet = getActiveSheet();
+
+      // 1. 欄位 Drag & Drop
+      let dragColIdx = null;
+      document.querySelectorAll('th[draggable="true"]').forEach(th => {
+        th.addEventListener('dragstart', (e) => {
+          dragColIdx = parseInt(e.target.dataset.colIdx);
+          e.target.classList.add('dragging');
+        });
+        th.addEventListener('dragover', (e) => e.preventDefault());
+        th.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const targetTh = e.target.closest('th');
+          if (!targetTh || targetTh.dataset.colIdx === undefined) return;
+          const dropColIdx = parseInt(targetTh.dataset.colIdx);
+          if (dragColIdx !== null && dragColIdx !== dropColIdx) {
+            const movedCol = sheet.columns.splice(dragColIdx, 1)[0];
+            sheet.columns.splice(dropColIdx, 0, movedCol);
+            saveData();
+            renderTable();
+          }
+        });
+        th.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
+      });
+
+      // 2. 列位 Drag & Drop
+      let dragRowIdx = null;
+      document.querySelectorAll('tbody tr').forEach(tr => {
+        tr.addEventListener('dragstart', (e) => {
+          dragRowIdx = parseInt(e.currentTarget.dataset.rowIdx);
+          e.currentTarget.classList.add('dragging');
+        });
+        tr.addEventListener('dragover', (e) => e.preventDefault());
+        tr.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const targetTr = e.target.closest('tr');
+          if (!targetTr || targetTr.dataset.rowIdx === undefined) return;
+          const dropRowIdx = parseInt(targetTr.dataset.rowIdx);
+          if (dragRowIdx !== null && dragRowIdx !== dropRowIdx) {
+            const movedRow = sheet.data.splice(dragRowIdx, 1)[0];
+            sheet.data.splice(dropRowIdx, 0, movedRow);
+            saveData();
+            renderTable();
+          }
+        });
+        tr.addEventListener('dragend', (e) => e.currentTarget.classList.remove('dragging'));
+      });
+    }
+
+    // CSV 匯出功能
+    window.exportCSV = function() {
+      const sheet = getActiveSheet();
+      if (!sheet.data || sheet.data.length === 0) {
+        alert("當前列表無資料可供匯出！");
+        return;
+      }
+
+      let csvContent = "\uFEFF"; // 加入 UTF-8 BOM 防止 Excel 亂碼
+      const headers = sheet.columns.map(c => `"${c.label.replace(/"/g, '""')}"`);
+      csvContent += headers.join(",") + "\r\n";
+
+      sheet.data.forEach(row => {
+        const rowArr = sheet.columns.map(c => {
+          const val = row[c.key] !== undefined ? String(row[c.key]) : "";
+          return `"${val.replace(/"/g, '""')}"`;
+        });
+        csvContent += rowArr.join(",") + "\r\n";
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${sheet.name}_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    // CSV 匯入功能
+    window.triggerCSVImport = function() {
+      if (!checkAuth()) return;
+      document.getElementById('csv-file-input').click();
+    };
+
+    document.getElementById('csv-file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const text = evt.target.result;
+        const lines = text.split(/\r\n|\n/);
+        if (lines.length === 0) return;
+
+        const parseCSVLine = (line) => {
+          const result = [];
+          let insideQuote = false;
+          let entry = '';
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              if (insideQuote && line[i+1] === '"') { entry += '"'; i++; }
+              else { insideQuote = !insideQuote; }
+            } else if (char === ',' && !insideQuote) {
+              result.push(entry.trim());
+              entry = '';
+            } else { entry += char; }
+          }
+          result.push(entry.trim());
+          return result;
+        };
+
+        const headers = parseCSVLine(lines[0]);
+        const newColumns = headers.map((h, i) => ({ key: `col_${i}`, label: h || `欄位${i+1}` }));
+        const newData = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue;
+          const rowValues = parseCSVLine(lines[i]);
+          const rowObj = {};
+          newColumns.forEach((col, idx) => {
+            rowObj[col.key] = rowValues[idx] || "";
+          });
+          newData.push(rowObj);
+        }
+
+        const sheet = getActiveSheet();
+        sheet.columns = newColumns;
+        sheet.data = newData;
+        saveData();
+        renderTable();
+        alert("CSV 匯入完成！");
+      };
+      reader.readAsText(file, 'utf-8');
+      this.value = '';
+    });
+
+    // 委外廠商完成進度分析
+    window.openAnalysisModal = function() {
+      document.getElementById('analysis-modal').style.display = 'flex';
+      renderChart();
+    };
+
+    window.closeAnalysisModal = function() {
+      document.getElementById('analysis-modal').style.display = 'none';
+    };
+
+    function renderChart() {
+      const sheet = getActiveSheet();
+      const vendorStats = {};
+
+      sheet.data.forEach(row => {
+        const vendor = row.vendor || "未指定廠商";
+        const status = row.status || "未完成";
+
+        if (!vendorStats[vendor]) {
+          vendorStats[vendor] = { total: 0, completed: 0 };
+        }
+        vendorStats[vendor].total += 1;
+        if (status.includes("完成") || status.includes("已入庫") || status.includes("結案")) {
+          vendorStats[vendor].completed += 1;
+        }
+      });
+
+      const labels = Object.keys(vendorStats);
+      const totalData = labels.map(l => vendorStats[l].total);
+      const completedData = labels.map(l => vendorStats[l].completed);
+
+      const ctx = document.getElementById('vendorStatusChart').getContext('2d');
+      if (myChart) myChart.destroy();
+
+      myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: '總發單件數', data: totalData, backgroundColor: '#38bdf8' },
+            { label: '已完成件數', data: completedData, backgroundColor: '#34d399' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, color: '#f8fafc', text: '各廠商製作進度與完成統計' },
+            legend: { labels: { color: '#f8fafc' } }
+          },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // 基本資料修改功能
     window.renameColumn = function(colIndex) {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
       const oldLabel = sheet.columns[colIndex].label;
       const newLabel = prompt("請輸入新的欄位名稱：", oldLabel);
-      
       if (newLabel !== null && newLabel.trim() !== "") {
         sheet.columns[colIndex].label = newLabel.trim();
         saveData();
@@ -570,9 +809,7 @@
       if (e) e.stopPropagation();
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
-      const col = sheet.columns[colIndex];
-      
-      if (confirm(`確定要刪除欄位「${col.label}」嗎？此操作無法復原！`)) {
+      if (confirm(`確定要刪除欄位「${sheet.columns[colIndex].label}」嗎？`)) {
         sheet.columns.splice(colIndex, 1);
         saveData();
         renderTable();
@@ -595,61 +832,19 @@
         const worksheet = wb.Sheets[firstSheetName];
         const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (!jsonRows || jsonRows.length === 0) {
-          alert("Excel 檔案內容為空！");
-          return;
-        }
-
-        const zip = await JSZip.loadAsync(arrayBuffer);
-        const imagesMap = {}; 
-        
-        const mediaFiles = Object.keys(zip.files).filter(path => path.startsWith('xl/media/'));
-        for (let i = 0; i < mediaFiles.length; i++) {
-          const path = mediaFiles[i];
-          const fileData = await zip.files[path].async('base64');
-          const ext = path.split('.').pop().toLowerCase();
-          const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
-          imagesMap[i] = `data:${mime};base64,${fileData}`;
-        }
+        if (!jsonRows || jsonRows.length === 0) return;
 
         const headerRow = jsonRows[0] || [];
-        const newColumns = [];
-        
-        headerRow.forEach((colName, index) => {
-          let key = `col_${index}`;
-          const name = String(colName).trim();
-          
-          if (name.toUpperCase().includes("SEQ") || name.toUpperCase().includes("NO")) key = "no";
-          else if (name.includes("圖面") || name.includes("小圖") || name.includes("縮圖") || name.includes("圖檔")) key = "productImg";
-          else if (name.includes("示意")) key = "img";
-          else if (name.includes("品號")) key = "itemNo";
-          else if (name.includes("品名")) key = "itemName";
-          else if (name.includes("廠商")) key = "vendor";
-          else if (name.includes("二次")) key = "note2";
-          else if (name.includes("加工") || name.includes("備註")) key = "note1";
-          else if (name.includes("未入庫")) key = "reason";
-          else if (name.includes("狀況") || name.includes("發單")) key = "status";
-
-          newColumns.push({ key: key, label: name });
-        });
-
+        const newColumns = headerRow.map((colName, index) => ({ key: `col_${index}`, label: String(colName).trim() }));
         const newData = [];
-        let imgIndex = 0;
 
         for (let i = 1; i < jsonRows.length; i++) {
           const rowData = jsonRows[i];
           if (!rowData || rowData.length === 0) continue;
-
           const rowObj = {};
           newColumns.forEach((col, cIdx) => {
             rowObj[col.key] = rowData[cIdx] !== undefined ? String(rowData[cIdx]) : "";
           });
-
-          if (!rowObj['productImg'] && imagesMap[imgIndex]) {
-            rowObj['productImg'] = imagesMap[imgIndex];
-            imgIndex++;
-          }
-
           newData.push(rowObj);
         }
 
@@ -659,11 +854,10 @@
 
         saveData();
         renderTable();
-        alert("Excel 檔案已成功匯入並同步至雲端！");
-
+        alert("Excel 檔案已成功匯入！");
       } catch (err) {
         console.error(err);
-        alert("匯入失敗，請確認檔案格式是否正確。");
+        alert("匯入失敗，請確認檔案格式。");
       } finally {
         this.value = '';
       }
@@ -672,10 +866,8 @@
     window.editProductImage = function(rowIndex, colKey = 'productImg') {
       if (!checkAuth()) return;
       currentEditImageTarget = { rowIndex, colKey };
-      
       const sheet = getActiveSheet();
       const currentVal = sheet.data[rowIndex][colKey] || '';
-
       const choice = prompt("請選擇圖片來源：\n1. 輸入 1 選擇本機圖片檔上傳\n2. 直接貼上圖片網址 (URL)\n3. 輸入 0 清除圖片", currentVal || "1");
       
       if (choice === "1") {
@@ -754,7 +946,6 @@
       }
     };
 
-    // 啟動時從 Firebase 載入資料
     loadDataFromCloud();
   </script>
 </body>
