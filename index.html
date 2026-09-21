@@ -389,7 +389,6 @@
     let activeSheetId = "sheet_1";
     let myChart = null;
 
-    // 日期轉換工具：處理 Excel 序列號 (例如 45200) 及字串格式轉為 YYYY-MM-DD
     function parseExcelDate(val) {
       if (val === undefined || val === null || val === "") return "";
       
@@ -410,7 +409,6 @@
       return String(val);
     }
 
-    // 儲存資料到 Firestore 雲端資料庫
     async function saveData() {
       const statusEl = document.getElementById('sync-status');
       statusEl.innerText = "☁️ 同步至雲端中...";
@@ -427,7 +425,6 @@
       }
     }
 
-    // 從 Firestore 讀取資料
     async function loadDataFromCloud() {
       const statusEl = document.getElementById('sync-status');
       try {
@@ -492,7 +489,6 @@
       }
     };
 
-    // 一鍵清除所有資料列
     window.clearAllData = function() {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
@@ -591,7 +587,6 @@
       return trimmed.startsWith('data:image') || trimmed.startsWith('http://') || trimmed.startsWith('https://');
     }
 
-    // 渲染表格
     function renderTable() {
       const sheet = getActiveSheet();
       const thead = document.getElementById('table-head');
@@ -635,11 +630,9 @@
       bindDragEvents();
     }
 
-    // 表格欄位/列位拖曳搬移事件處理
     function bindDragEvents() {
       const sheet = getActiveSheet();
 
-      // 1. 欄位 Drag & Drop
       let dragColIdx = null;
       document.querySelectorAll('th[draggable="true"]').forEach(th => {
         th.addEventListener('dragstart', (e) => {
@@ -662,7 +655,6 @@
         th.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
       });
 
-      // 2. 列位 Drag & Drop
       let dragRowIdx = null;
       document.querySelectorAll('tbody tr').forEach(tr => {
         tr.addEventListener('dragstart', (e) => {
@@ -686,7 +678,6 @@
       });
     }
 
-    // CSV 匯出功能
     window.exportCSV = function() {
       const sheet = getActiveSheet();
       if (!sheet.data || sheet.data.length === 0) {
@@ -716,7 +707,6 @@
       document.body.removeChild(link);
     };
 
-    // CSV 匯入功能
     window.triggerCSVImport = function() {
       if (!checkAuth()) return;
       document.getElementById('csv-file-input').click();
@@ -752,10 +742,14 @@
 
         const headers = parseCSVLine(lines[0]);
         const newColumns = headers.map((h, i) => {
+          const name = String(h || '').trim();
           let key = `col_${i}`;
-          if (h.includes("FAI") && h.includes("派工")) key = "faiAssignDate";
-          else if (h.includes("FAI") && h.includes("合格")) key = "faiPassDate";
-          return { key: key, label: h || `欄位${i+1}` };
+          if (name.includes("FAI") && name.includes("派工")) key = "faiAssignDate";
+          else if (name.includes("FAI") && name.includes("合格")) key = "faiPassDate";
+          else if (name.includes("廠商") || name.includes("委外") || name.toLowerCase().includes("vendor") || name.toLowerCase().includes("supplier")) key = "vendor";
+          else if (name.includes("品號")) key = "itemNo";
+          else if (name.includes("品名")) key = "itemName";
+          return { key: key, label: name || `欄位${i+1}` };
         });
 
         const newData = [];
@@ -784,7 +778,7 @@
       this.value = '';
     });
 
-    // Excel 匯入功能
+    // Excel 匯入功能 (修復廠商與相關欄位對應問題)
     window.triggerExcelImport = function() {
       if (!checkAuth()) return;
       document.getElementById('excel-file-input').click();
@@ -805,14 +799,18 @@
 
         const headerRow = jsonRows[0] || [];
         const newColumns = headerRow.map((colName, index) => {
-          const name = String(colName).trim();
+          const name = String(colName || '').trim();
           let key = `col_${index}`;
+          
+          // 擴充廠商欄位辨識關鍵字 (支援廠商, 委外, Vendor, Supplier 等)
           if (name.includes("FAI") && name.includes("派工")) key = "faiAssignDate";
           else if (name.includes("FAI") && name.includes("合格")) key = "faiPassDate";
           else if (name.includes("品號")) key = "itemNo";
           else if (name.includes("品名")) key = "itemName";
-          else if (name.includes("廠商")) key = "vendor";
-          return { key: key, label: name };
+          else if (name.includes("廠商") || name.includes("委外") || name.toLowerCase().includes("vendor") || name.toLowerCase().includes("supplier")) key = "vendor";
+          else if (name.includes("狀態") || name.includes("進度")) key = "status";
+          
+          return { key: key, label: name || `欄位${index+1}` };
         });
 
         const newData = [];
@@ -821,11 +819,11 @@
           if (!rowData || rowData.length === 0) continue;
           const rowObj = {};
           newColumns.forEach((col, cIdx) => {
-            let val = rowData[cIdx] !== undefined ? rowData[cIdx] : "";
+            let val = rowData[cIdx] !== undefined && rowData[cIdx] !== null ? rowData[cIdx] : "";
             if (col.label.includes("日期") || col.label.includes("日") || col.label.includes("FAI")) {
               val = parseExcelDate(val);
             } else {
-              val = String(val);
+              val = String(val).trim();
             }
             rowObj[col.key] = val;
           });
@@ -847,7 +845,6 @@
       }
     });
 
-    // 委外廠商進度分析圖表
     window.openAnalysisModal = function() {
       document.getElementById('analysis-modal').style.display = 'flex';
       renderChart();
@@ -905,7 +902,6 @@
       });
     }
 
-    // 基本編輯與操作功能
     window.renameColumn = function(colIndex) {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
