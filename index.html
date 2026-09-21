@@ -261,8 +261,8 @@
       gap: 12px;
     }
     .modal-large {
-      width: 700px;
-      max-width: 90vw;
+      width: 1000px;
+      max-width: 95vw;
     }
     .modal input {
       padding: 8px 12px;
@@ -331,14 +331,21 @@
     </div>
   </div>
 
-  <!-- 分析圖表 Modal -->
+  <!-- 分析圖表 Modal (拆分為兩個圖表區域) -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal modal-large">
-      <h3 style="margin: 0; color: var(--accent);">📊 委外廠商進度與完成率分析</h3>
-      <div style="display: flex; gap: 16px; min-height: 300px; justify-content: center; align-items: center;">
-        <div style="flex: 1; height: 300px;"><canvas id="vendorStatusChart"></canvas></div>
+      <h3 style="margin: 0; color: var(--accent); text-align: center;">📊 委外廠商進度分析拆分</h3>
+      <div style="display: flex; gap: 20px; min-height: 340px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <!-- 左側：FAI合格已派工 -->
+        <div style="flex: 1; min-width: 400px; height: 320px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <canvas id="vendorStatusChart"></canvas>
+        </div>
+        <!-- 右側：FAI待驗證 -->
+        <div style="flex: 1; min-width: 400px; height: 320px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <canvas id="faiPendingChart"></canvas>
+        </div>
       </div>
-      <button class="btn" onclick="closeAnalysisModal()">關閉分析</button>
+      <button class="btn" style="margin-top: 10px;" onclick="closeAnalysisModal()">關閉分析</button>
     </div>
   </div>
 
@@ -361,7 +368,6 @@
     const db = getFirestore(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
 
-    // 獨立「廠商」與「FAI 待驗證廠商」欄位
     const defaultColumns = [
       { key: "no", label: "No." },
       { key: "productImg", label: "產品圖面" },
@@ -390,7 +396,8 @@
       { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData }
     ];
     let activeSheetId = "sheet_1";
-    let myChart = null;
+    let myChart1 = null;
+    let myChart2 = null;
 
     function parseExcelDate(val) {
       if (val === undefined || val === null || val === "") return "";
@@ -710,18 +717,12 @@
       document.body.removeChild(link);
     };
 
-    // 精確解析欄位標題 key 的函式
     function parseColumnKey(colName, index) {
       const name = String(colName || '').trim();
       const lower = name.toLowerCase();
 
-      // 先判斷待驗證廠商
       if (name.includes("待驗證")) return "faiPendingVendor";
-      
-      // 再判斷一般廠商
       if (name.includes("廠商") || name.includes("委外") || lower.includes("vendor") || lower.includes("supplier")) return "vendor";
-      
-      // 其他關鍵字對應
       if (name.includes("FAI") && name.includes("派工")) return "faiAssignDate";
       if (name.includes("FAI") && name.includes("合格")) return "faiPassDate";
       if (name.includes("交貨")) return "deliveredPcs";
@@ -864,44 +865,89 @@
       document.getElementById('analysis-modal').style.display = 'none';
     };
 
+    // 渲染兩個獨立分析圖表：FAI合格已派工 與 FAI待驗證
     function renderChart() {
       const sheet = getActiveSheet();
-      const vendorStats = {};
+      
+      const vendorStats = {};      // FAI合格已派工 (vendor)
+      const pendingStats = {};     // FAI待驗證 (faiPendingVendor)
 
       sheet.data.forEach(row => {
-        const vendor = row.vendor || "未指定廠商";
-        const status = row.status || "未完成";
+        const vendor = (row.vendor || "").trim();
+        const pendingVendor = (row.faiPendingVendor || "").trim();
+        const status = (row.status || "").trim();
 
-        if (!vendorStats[vendor]) {
-          vendorStats[vendor] = { total: 0, completed: 0 };
+        // 1. 統計 FAI合格已派工 廠商
+        if (vendor && vendor !== "-") {
+          if (!vendorStats[vendor]) {
+            vendorStats[vendor] = { total: 0, completed: 0 };
+          }
+          vendorStats[vendor].total += 1;
+          if (status.includes("完成") || status.includes("已入庫") || status.includes("結案")) {
+            vendorStats[vendor].completed += 1;
+          }
         }
-        vendorStats[vendor].total += 1;
-        if (status.includes("完成") || status.includes("已入庫") || status.includes("結案")) {
-          vendorStats[vendor].completed += 1;
+
+        // 2. 統計 FAI待驗證 廠商
+        if (pendingVendor && pendingVendor !== "-") {
+          if (!pendingStats[pendingVendor]) {
+            pendingStats[pendingVendor] = { total: 0 };
+          }
+          pendingStats[pendingVendor].total += 1;
         }
       });
 
-      const labels = Object.keys(vendorStats);
-      const totalData = labels.map(l => vendorStats[l].total);
-      const completedData = labels.map(l => vendorStats[l].completed);
+      // ---- 渲染圖表 1：FAI合格已派工 ----
+      const labels1 = Object.keys(vendorStats);
+      const totalData1 = labels1.map(l => vendorStats[l].total);
+      const completedData1 = labels1.map(l => vendorStats[l].completed);
 
-      const ctx = document.getElementById('vendorStatusChart').getContext('2d');
-      if (myChart) myChart.destroy();
+      const ctx1 = document.getElementById('vendorStatusChart').getContext('2d');
+      if (myChart1) myChart1.destroy();
 
-      myChart = new Chart(ctx, {
+      myChart1 = new Chart(ctx1, {
         type: 'bar',
         data: {
-          labels: labels,
+          labels: labels1.length > 0 ? labels1 : ["無資料"],
           datasets: [
-            { label: '總發單件數', data: totalData, backgroundColor: '#38bdf8' },
-            { label: '已完成件數', data: completedData, backgroundColor: '#34d399' }
+            { label: '總派工件數', data: totalData1.length > 0 ? totalData1 : [0], backgroundColor: '#38bdf8' },
+            { label: '已完成件數', data: completedData1.length > 0 ? completedData1 : [0], backgroundColor: '#34d399' }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, color: '#f8fafc', text: '各廠商製作進度與完成統計' },
+            title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】廠商進度與完成統計', font: { size: 14 } },
+            legend: { labels: { color: '#f8fafc' } }
+          },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
+          }
+        }
+      });
+
+      // ---- 渲染圖表 2：FAI待驗證 ----
+      const labels2 = Object.keys(pendingStats);
+      const totalData2 = labels2.map(l => pendingStats[l].total);
+
+      const ctx2 = document.getElementById('faiPendingChart').getContext('2d');
+      if (myChart2) myChart2.destroy();
+
+      myChart2 = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: labels2.length > 0 ? labels2 : ["無資料"],
+          datasets: [
+            { label: '待驗證總件數', data: totalData2.length > 0 ? totalData2 : [0], backgroundColor: '#fbbf24' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, color: '#f8fafc', text: '【FAI 待驗證】廠商待驗數量統計', font: { size: 14 } },
             legend: { labels: { color: '#f8fafc' } }
           },
           scales: {
