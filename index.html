@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>委外廠商製作進度追蹤表 (雲端進階版)</title>
-  <!-- 引入 SheetJS、JSZip 與 Chart.js 套件 -->
+  <!-- 引入 SheetJS、JSZip、Chart.js 與 Chart.js DataLabels 套件 -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
   
   <style>
     :root {
@@ -331,18 +332,24 @@
     </div>
   </div>
 
-  <!-- 分析圖表 Modal (已修改標題與結構) -->
+  <!-- 分析圖表 Modal (新增圖表匯出按鈕) -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal modal-large">
       <h3 style="margin: 0; color: var(--accent); text-align: center; font-size: 1.4rem;">📊 衛星工廠進度追蹤</h3>
       <div style="display: flex; gap: 20px; min-height: 350px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
         <!-- 左側：FAI合格已派工 -->
-        <div style="flex: 1.2; min-width: 450px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-          <canvas id="vendorStatusChart"></canvas>
+        <div style="flex: 1.2; min-width: 450px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+          <div style="flex: 1; min-height: 0;">
+            <canvas id="vendorStatusChart"></canvas>
+          </div>
+          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('vendorStatusChart', 'FAI合格已派工進度圖表')">🖼️ 匯出圖表 PNG</button>
         </div>
         <!-- 右側：FAI待驗證 -->
-        <div style="flex: 0.8; min-width: 350px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-          <canvas id="faiPendingChart"></canvas>
+        <div style="flex: 0.8; min-width: 350px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+          <div style="flex: 1; min-height: 0;">
+            <canvas id="faiPendingChart"></canvas>
+          </div>
+          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('faiPendingChart', 'FAI待驗證數量圖表')">🖼️ 匯出圖表 PNG</button>
         </div>
       </div>
       <button class="btn" style="margin-top: 10px;" onclick="closeAnalysisModal()">關閉分析</button>
@@ -353,6 +360,11 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // 註冊 Chart.js 的 DataLabels 外掛 (讓圖表上的數值顯示)
+    if (typeof ChartDataLabels !== 'undefined') {
+      Chart.register(ChartDataLabels);
+    }
 
     const firebaseConfig = {
       apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
@@ -865,7 +877,31 @@
       document.getElementById('analysis-modal').style.display = 'none';
     };
 
-    // 渲染兩個獨立分析圖表，並加入已交貨 PCS 累計
+    // 匯出指定 Canvas 為 PNG 圖片
+    window.exportChartImage = function(canvasId, fileNamePrefix) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+
+      // 建立臨時 Canvas 加上深色背景，確保下載出來圖片閱讀清晰
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const ctx = tempCanvas.getContext('2d');
+      
+      ctx.fillStyle = '#0f172a'; // 填滿深色背景
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      ctx.drawImage(canvas, 0, 0);
+
+      const imageURI = tempCanvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `${fileNamePrefix}_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = imageURI;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    // 渲染兩個獨立分析圖表（啟用 datalabels 顯示數值）
     function renderChart() {
       const sheet = getActiveSheet();
       
@@ -876,11 +912,9 @@
         const vendor = (row.vendor || "").trim();
         const pendingVendor = (row.faiPendingVendor || "").trim();
         const status = (row.status || "").trim();
-        
-        // 解析已交貨 PCS 數量
         const pcsNum = parseFloat(row.deliveredPcs) || 0;
 
-        // 1. 統計 FAI合格已派工 廠商 (包含發單數、完成數、已交貨PCS)
+        // 1. 統計 FAI合格已派工 廠商
         if (vendor && vendor !== "-") {
           if (!vendorStats[vendor]) {
             vendorStats[vendor] = { total: 0, completed: 0, deliveredPcs: 0 };
@@ -901,7 +935,7 @@
         }
       });
 
-      // ---- 渲染圖表 1：FAI合格已派工 (新增已交貨 PCS 統計) ----
+      // ---- 渲染圖表 1：FAI合格已派工 ----
       const labels1 = Object.keys(vendorStats);
       const totalData1 = labels1.map(l => vendorStats[l].total);
       const completedData1 = labels1.map(l => vendorStats[l].completed);
@@ -925,7 +959,17 @@
           maintainAspectRatio: false,
           plugins: {
             title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】進度與已交貨 PCS 統計', font: { size: 14 } },
-            legend: { labels: { color: '#f8fafc' } }
+            legend: { labels: { color: '#f8fafc' } },
+            datalabels: {
+              anchor: 'end',
+              align: 'start',
+              offset: -18,
+              color: '#ffffff',
+              font: { weight: 'bold', size: 11 },
+              formatter: function(value) {
+                return value > 0 ? value : '';
+              }
+            }
           },
           scales: {
             x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
@@ -954,7 +998,17 @@
           maintainAspectRatio: false,
           plugins: {
             title: { display: true, color: '#f8fafc', text: '【FAI 待驗證】廠商待驗數量統計', font: { size: 14 } },
-            legend: { labels: { color: '#f8fafc' } }
+            legend: { labels: { color: '#f8fafc' } },
+            datalabels: {
+              anchor: 'end',
+              align: 'start',
+              offset: -18,
+              color: '#000000',
+              font: { weight: 'bold', size: 11 },
+              formatter: function(value) {
+                return value > 0 ? value : '';
+              }
+            }
           },
           scales: {
             x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
