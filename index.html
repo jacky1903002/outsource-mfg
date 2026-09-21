@@ -261,7 +261,7 @@
       gap: 12px;
     }
     .modal-large {
-      width: 1000px;
+      width: 1050px;
       max-width: 95vw;
     }
     .modal input {
@@ -302,7 +302,7 @@
         <button class="btn btn-success" onclick="triggerExcelImport()">📥 匯入 Excel</button>
         <button class="btn btn-success" onclick="triggerCSVImport()">📥 匯入 CSV</button>
         <button class="btn btn-warning" onclick="exportCSV()">📤 匯出 CSV</button>
-        <button class="btn btn-primary" style="background-color: #8b5cf6;" onclick="openAnalysisModal()">📊 廠商進度分析</button>
+        <button class="btn btn-primary" style="background-color: #8b5cf6;" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
         <button class="btn btn-danger" onclick="clearAllData()">🧹 清除所有資訊</button>
         <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto;">☁️ 雲端載入中...</span>
       </div>
@@ -331,17 +331,17 @@
     </div>
   </div>
 
-  <!-- 分析圖表 Modal (拆分為兩個圖表區域) -->
+  <!-- 分析圖表 Modal (已修改標題與結構) -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal modal-large">
-      <h3 style="margin: 0; color: var(--accent); text-align: center;">📊 委外廠商進度分析拆分</h3>
-      <div style="display: flex; gap: 20px; min-height: 340px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+      <h3 style="margin: 0; color: var(--accent); text-align: center; font-size: 1.4rem;">📊 衛星工廠進度追蹤</h3>
+      <div style="display: flex; gap: 20px; min-height: 350px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
         <!-- 左側：FAI合格已派工 -->
-        <div style="flex: 1; min-width: 400px; height: 320px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="flex: 1.2; min-width: 450px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
           <canvas id="vendorStatusChart"></canvas>
         </div>
         <!-- 右側：FAI待驗證 -->
-        <div style="flex: 1; min-width: 400px; height: 320px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="flex: 0.8; min-width: 350px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
           <canvas id="faiPendingChart"></canvas>
         </div>
       </div>
@@ -387,7 +387,7 @@
 
     const initialData = [
       { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "廠商A", faiAssignDate: "2024-03-01", faiPassDate: "2024-03-05", deliveredPcs: "100", faiPendingVendor: "廠商C", note1: "50001-111", note2: "", reason: "", status: "已完成入庫" },
-      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "廠商B", faiAssignDate: "2024-03-10", faiPassDate: "", deliveredPcs: "0", faiPendingVendor: "", note1: "50001-112", note2: "", reason: "缺料延遲", status: "加工中" }
+      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "廠商B", faiAssignDate: "2024-03-10", faiPassDate: "", deliveredPcs: "50", faiPendingVendor: "", note1: "50001-112", note2: "", reason: "缺料延遲", status: "加工中" }
     ];
 
     let isLoggedIn = false;
@@ -865,7 +865,7 @@
       document.getElementById('analysis-modal').style.display = 'none';
     };
 
-    // 渲染兩個獨立分析圖表：FAI合格已派工 與 FAI待驗證
+    // 渲染兩個獨立分析圖表，並加入已交貨 PCS 累計
     function renderChart() {
       const sheet = getActiveSheet();
       
@@ -876,13 +876,17 @@
         const vendor = (row.vendor || "").trim();
         const pendingVendor = (row.faiPendingVendor || "").trim();
         const status = (row.status || "").trim();
+        
+        // 解析已交貨 PCS 數量
+        const pcsNum = parseFloat(row.deliveredPcs) || 0;
 
-        // 1. 統計 FAI合格已派工 廠商
+        // 1. 統計 FAI合格已派工 廠商 (包含發單數、完成數、已交貨PCS)
         if (vendor && vendor !== "-") {
           if (!vendorStats[vendor]) {
-            vendorStats[vendor] = { total: 0, completed: 0 };
+            vendorStats[vendor] = { total: 0, completed: 0, deliveredPcs: 0 };
           }
           vendorStats[vendor].total += 1;
+          vendorStats[vendor].deliveredPcs += pcsNum;
           if (status.includes("完成") || status.includes("已入庫") || status.includes("結案")) {
             vendorStats[vendor].completed += 1;
           }
@@ -897,10 +901,11 @@
         }
       });
 
-      // ---- 渲染圖表 1：FAI合格已派工 ----
+      // ---- 渲染圖表 1：FAI合格已派工 (新增已交貨 PCS 統計) ----
       const labels1 = Object.keys(vendorStats);
       const totalData1 = labels1.map(l => vendorStats[l].total);
       const completedData1 = labels1.map(l => vendorStats[l].completed);
+      const pcsData1 = labels1.map(l => vendorStats[l].deliveredPcs);
 
       const ctx1 = document.getElementById('vendorStatusChart').getContext('2d');
       if (myChart1) myChart1.destroy();
@@ -911,14 +916,15 @@
           labels: labels1.length > 0 ? labels1 : ["無資料"],
           datasets: [
             { label: '總派工件數', data: totalData1.length > 0 ? totalData1 : [0], backgroundColor: '#38bdf8' },
-            { label: '已完成件數', data: completedData1.length > 0 ? completedData1 : [0], backgroundColor: '#34d399' }
+            { label: '已完成件數', data: completedData1.length > 0 ? completedData1 : [0], backgroundColor: '#34d399' },
+            { label: '已交貨 (PCS)', data: pcsData1.length > 0 ? pcsData1 : [0], backgroundColor: '#a78bfa' }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】廠商進度與完成統計', font: { size: 14 } },
+            title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】進度與已交貨 PCS 統計', font: { size: 14 } },
             legend: { labels: { color: '#f8fafc' } }
           },
           scales: {
