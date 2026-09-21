@@ -262,7 +262,7 @@
       gap: 12px;
     }
     .modal-large {
-      width: 1050px;
+      width: 1200px;
       max-width: 95vw;
     }
     .modal input {
@@ -332,25 +332,36 @@
     </div>
   </div>
 
-  <!-- 分析圖表 Modal (新增圖表匯出按鈕) -->
+  <!-- 分析圖表 Modal (拆分為 3 個獨立圖表) -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal modal-large">
       <h3 style="margin: 0; color: var(--accent); text-align: center; font-size: 1.4rem;">📊 衛星工廠進度追蹤</h3>
-      <div style="display: flex; gap: 20px; min-height: 350px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-        <!-- 左側：FAI合格已派工 -->
-        <div style="flex: 1.2; min-width: 450px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+      <div style="display: flex; gap: 16px; min-height: 350px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        
+        <!-- 1. FAI合格已派工 - 件數 -->
+        <div style="flex: 1; min-width: 340px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
           <div style="flex: 1; min-height: 0;">
-            <canvas id="vendorStatusChart"></canvas>
+            <canvas id="vendorCountChart"></canvas>
           </div>
-          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('vendorStatusChart', 'FAI合格已派工進度圖表')">🖼️ 匯出圖表 PNG</button>
+          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('vendorCountChart', 'FAI合格已派工_件數圖表')">🖼️ 匯出 PNG</button>
         </div>
-        <!-- 右側：FAI待驗證 -->
-        <div style="flex: 0.8; min-width: 350px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+
+        <!-- 2. FAI合格已派工 - 已交貨 PCS -->
+        <div style="flex: 1; min-width: 340px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+          <div style="flex: 1; min-height: 0;">
+            <canvas id="vendorPcsChart"></canvas>
+          </div>
+          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('vendorPcsChart', 'FAI合格已派工_已交貨PCS圖表')">🖼️ 匯出 PNG</button>
+        </div>
+
+        <!-- 3. FAI待驗證 - 件數 -->
+        <div style="flex: 1; min-width: 340px; height: 330px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
           <div style="flex: 1; min-height: 0;">
             <canvas id="faiPendingChart"></canvas>
           </div>
-          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('faiPendingChart', 'FAI待驗證數量圖表')">🖼️ 匯出圖表 PNG</button>
+          <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end; padding: 4px 10px; font-size: 0.75rem;" onclick="exportChartImage('faiPendingChart', 'FAI待驗證數量圖表')">🖼️ 匯出 PNG</button>
         </div>
+
       </div>
       <button class="btn" style="margin-top: 10px;" onclick="closeAnalysisModal()">關閉分析</button>
     </div>
@@ -408,8 +419,9 @@
       { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: initialData }
     ];
     let activeSheetId = "sheet_1";
-    let myChart1 = null;
-    let myChart2 = null;
+    let myChartCount = null;
+    let myChartPcs = null;
+    let myChartPending = null;
 
     function parseExcelDate(val) {
       if (val === undefined || val === null || val === "") return "";
@@ -882,7 +894,6 @@
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
 
-      // 建立臨時 Canvas 加上深色背景，確保下載出來圖片閱讀清晰
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = canvas.width;
       tempCanvas.height = canvas.height;
@@ -901,7 +912,7 @@
       document.body.removeChild(link);
     };
 
-    // 渲染兩個獨立分析圖表（啟用 datalabels 顯示數值）
+    // 渲染三個獨立分析圖表
     function renderChart() {
       const sheet = getActiveSheet();
       
@@ -935,30 +946,29 @@
         }
       });
 
-      // ---- 渲染圖表 1：FAI合格已派工 ----
       const labels1 = Object.keys(vendorStats);
       const totalData1 = labels1.map(l => vendorStats[l].total);
       const completedData1 = labels1.map(l => vendorStats[l].completed);
       const pcsData1 = labels1.map(l => vendorStats[l].deliveredPcs);
 
-      const ctx1 = document.getElementById('vendorStatusChart').getContext('2d');
-      if (myChart1) myChart1.destroy();
+      // ---- 1. FAI合格已派工 - 件數圖表 ----
+      const ctxCount = document.getElementById('vendorCountChart').getContext('2d');
+      if (myChartCount) myChartCount.destroy();
 
-      myChart1 = new Chart(ctx1, {
+      myChartCount = new Chart(ctxCount, {
         type: 'bar',
         data: {
           labels: labels1.length > 0 ? labels1 : ["無資料"],
           datasets: [
             { label: '總派工件數', data: totalData1.length > 0 ? totalData1 : [0], backgroundColor: '#38bdf8' },
-            { label: '已完成件數', data: completedData1.length > 0 ? completedData1 : [0], backgroundColor: '#34d399' },
-            { label: '已交貨 (PCS)', data: pcsData1.length > 0 ? pcsData1 : [0], backgroundColor: '#a78bfa' }
+            { label: '已完成件數', data: completedData1.length > 0 ? completedData1 : [0], backgroundColor: '#34d399' }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】進度與已交貨 PCS 統計', font: { size: 14 } },
+            title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】件數統計', font: { size: 14 } },
             legend: { labels: { color: '#f8fafc' } },
             datalabels: {
               anchor: 'end',
@@ -966,9 +976,7 @@
               offset: -18,
               color: '#ffffff',
               font: { weight: 'bold', size: 11 },
-              formatter: function(value) {
-                return value > 0 ? value : '';
-              }
+              formatter: function(value) { return value > 0 ? value : ''; }
             }
           },
           scales: {
@@ -978,14 +986,48 @@
         }
       });
 
-      // ---- 渲染圖表 2：FAI待驗證 ----
+      // ---- 2. FAI合格已派工 - 已交貨 PCS 圖表 ----
+      const ctxPcs = document.getElementById('vendorPcsChart').getContext('2d');
+      if (myChartPcs) myChartPcs.destroy();
+
+      myChartPcs = new Chart(ctxPcs, {
+        type: 'bar',
+        data: {
+          labels: labels1.length > 0 ? labels1 : ["無資料"],
+          datasets: [
+            { label: '已交貨 (PCS)', data: pcsData1.length > 0 ? pcsData1 : [0], backgroundColor: '#a78bfa' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, color: '#f8fafc', text: '【FAI 合格已派工】已交貨 PCS 統計', font: { size: 14 } },
+            legend: { labels: { color: '#f8fafc' } },
+            datalabels: {
+              anchor: 'end',
+              align: 'start',
+              offset: -18,
+              color: '#ffffff',
+              font: { weight: 'bold', size: 11 },
+              formatter: function(value) { return value > 0 ? value : ''; }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
+          }
+        }
+      });
+
+      // ---- 3. FAI待驗證 - 廠商數量圖表 ----
       const labels2 = Object.keys(pendingStats);
       const totalData2 = labels2.map(l => pendingStats[l].total);
 
-      const ctx2 = document.getElementById('faiPendingChart').getContext('2d');
-      if (myChart2) myChart2.destroy();
+      const ctxPending = document.getElementById('faiPendingChart').getContext('2d');
+      if (myChartPending) myChartPending.destroy();
 
-      myChart2 = new Chart(ctx2, {
+      myChartPending = new Chart(ctxPending, {
         type: 'bar',
         data: {
           labels: labels2.length > 0 ? labels2 : ["無資料"],
@@ -1005,9 +1047,7 @@
               offset: -18,
               color: '#000000',
               font: { weight: 'bold', size: 11 },
-              formatter: function(value) {
-                return value > 0 ? value : '';
-              }
+              formatter: function(value) { return value > 0 ? value : ''; }
             }
           },
           scales: {
