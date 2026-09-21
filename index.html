@@ -366,6 +366,8 @@
       { key: "itemNo", label: "品號" },
       { key: "itemName", label: "品名" },
       { key: "vendor", label: "廠商" },
+      { key: "faiAssignDate", label: "FAI派工日期" },
+      { key: "faiPassDate", label: "FAI合格日期" },
       { key: "note1", label: "加工或備註" },
       { key: "note2", label: "二次加工備註" },
       { key: "reason", label: "未入庫原因" },
@@ -373,8 +375,8 @@
     ];
 
     const initialData = [
-      { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "廠商A", note1: "50001-111", note2: "", reason: "", status: "已完成入庫" },
-      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "廠商B", note1: "50001-112", note2: "", reason: "缺料延遲", status: "加工中" }
+      { no: 1, productImg: "", img: "📐", itemNo: "10091-VWNE000", itemName: "FVSE-0036-4", vendor: "廠商A", faiAssignDate: "2024-03-01", faiPassDate: "2024-03-05", note1: "50001-111", note2: "", reason: "", status: "已完成入庫" },
+      { no: 2, productImg: "", img: "📐", itemNo: "10021-VWNE000", itemName: "FVSE-0525-4 治具", vendor: "廠商B", faiAssignDate: "2024-03-10", faiPassDate: "", note1: "50001-112", note2: "", reason: "缺料延遲", status: "加工中" }
     ];
 
     let isLoggedIn = false;
@@ -384,6 +386,29 @@
     ];
     let activeSheetId = "sheet_1";
     let myChart = null;
+
+    // 日期轉換工具：處理 Excel 序列號 (例如 45200) 及字串格式轉為 YYYY-MM-DD
+    function parseExcelDate(val) {
+      if (val === undefined || val === null || val === "") return "";
+      
+      // 如果已經是完整的日期字串 (例如 YYYY-MM-DD 或 YYYY/MM/DD)
+      if (typeof val === 'string' && (val.includes('-') || val.includes('/'))) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split('T')[0];
+        }
+      }
+
+      // 如果是 Excel 數字序列號 (例如 45200)
+      const num = Number(val);
+      if (!isNaN(num) && num > 20000 && num < 60000) {
+        const excelEpoch = new Date(1899, 11, 30);
+        const dateObj = new Date(excelEpoch.getTime() + num * 86400000);
+        return dateObj.toISOString().split('T')[0];
+      }
+
+      return String(val);
+    }
 
     // 儲存資料到 Firestore 雲端資料庫
     async function saveData() {
@@ -550,7 +575,7 @@
       return trimmed.startsWith('data:image') || trimmed.startsWith('http://') || trimmed.startsWith('https://');
     }
 
-    // 渲染表格 (包含拖曳事件繫結)
+    // 渲染表格
     function renderTable() {
       const sheet = getActiveSheet();
       const thead = document.getElementById('table-head');
@@ -653,7 +678,7 @@
         return;
       }
 
-      let csvContent = "\uFEFF"; // 加入 UTF-8 BOM 防止 Excel 亂碼
+      let csvContent = "\uFEFF"; // BOM 防止 Excel 開啟亂碼
       const headers = sheet.columns.map(c => `"${c.label.replace(/"/g, '""')}"`);
       csvContent += headers.join(",") + "\r\n";
 
@@ -710,15 +735,24 @@
         };
 
         const headers = parseCSVLine(lines[0]);
-        const newColumns = headers.map((h, i) => ({ key: `col_${i}`, label: h || `欄位${i+1}` }));
-        const newData = [];
+        const newColumns = headers.map((h, i) => {
+          let key = `col_${i}`;
+          if (h.includes("FAI") && h.includes("派工")) key = "faiAssignDate";
+          else if (h.includes("FAI") && h.includes("合格")) key = "faiPassDate";
+          return { key: key, label: h || `欄位${i+1}` };
+        });
 
+        const newData = [];
         for (let i = 1; i < lines.length; i++) {
           if (!lines[i].trim()) continue;
           const rowValues = parseCSVLine(lines[i]);
           const rowObj = {};
           newColumns.forEach((col, idx) => {
-            rowObj[col.key] = rowValues[idx] || "";
+            let val = rowValues[idx] || "";
+            if (col.label.includes("日期") || col.label.includes("日") || col.label.includes("FAI")) {
+              val = parseExcelDate(val);
+            }
+            rowObj[col.key] = val;
           });
           newData.push(rowObj);
         }
@@ -734,7 +768,72 @@
       this.value = '';
     });
 
-    // 委外廠商完成進度分析
+    // Excel 匯入功能 (包含日期轉換修正)
+    window.triggerExcelImport = function() {
+      if (!checkAuth()) return;
+      document.getElementById('excel-file-input').click();
+    };
+
+    document.getElementById('excel-file-input').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        // cellDates: true 讓 SheetJS 自動轉換日期物件
+        const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+        const firstSheetName = wb.SheetNames[0];
+        const worksheet = wb.Sheets[firstSheetName];
+        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+        if (!jsonRows || jsonRows.length === 0) return;
+
+        const headerRow = jsonRows[0] || [];
+        const newColumns = headerRow.map((colName, index) => {
+          const name = String(colName).trim();
+          let key = `col_${index}`;
+          if (name.includes("FAI") && name.includes("派工")) key = "faiAssignDate";
+          else if (name.includes("FAI") && name.includes("合格")) key = "faiPassDate";
+          else if (name.includes("品號")) key = "itemNo";
+          else if (name.includes("品名")) key = "itemName";
+          else if (name.includes("廠商")) key = "vendor";
+          return { key: key, label: name };
+        });
+
+        const newData = [];
+        for (let i = 1; i < jsonRows.length; i++) {
+          const rowData = jsonRows[i];
+          if (!rowData || rowData.length === 0) continue;
+          const rowObj = {};
+          newColumns.forEach((col, cIdx) => {
+            let val = rowData[cIdx] !== undefined ? rowData[cIdx] : "";
+            // 日期相關欄位自動轉成日期格式
+            if (col.label.includes("日期") || col.label.includes("日") || col.label.includes("FAI")) {
+              val = parseExcelDate(val);
+            } else {
+              val = String(val);
+            }
+            rowObj[col.key] = val;
+          });
+          newData.push(rowObj);
+        }
+
+        const currentSheet = getActiveSheet();
+        currentSheet.columns = newColumns.length > 0 ? newColumns : defaultColumns;
+        currentSheet.data = newData;
+
+        saveData();
+        renderTable();
+        alert("Excel 檔案已成功匯入！");
+      } catch (err) {
+        console.error(err);
+        alert("匯入失敗，請確認檔案格式。");
+      } finally {
+        this.value = '';
+      }
+    });
+
+    // 委外廠商進度分析圖表
     window.openAnalysisModal = function() {
       document.getElementById('analysis-modal').style.display = 'flex';
       renderChart();
@@ -792,7 +891,7 @@
       });
     }
 
-    // 基本資料修改功能
+    // 基本編輯與操作功能
     window.renameColumn = function(colIndex) {
       if (!checkAuth()) return;
       const sheet = getActiveSheet();
@@ -815,53 +914,6 @@
         renderTable();
       }
     };
-
-    window.triggerExcelImport = function() {
-      if (!checkAuth()) return;
-      document.getElementById('excel-file-input').click();
-    };
-
-    document.getElementById('excel-file-input').addEventListener('change', async function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const wb = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheetName = wb.SheetNames[0];
-        const worksheet = wb.Sheets[firstSheetName];
-        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        if (!jsonRows || jsonRows.length === 0) return;
-
-        const headerRow = jsonRows[0] || [];
-        const newColumns = headerRow.map((colName, index) => ({ key: `col_${index}`, label: String(colName).trim() }));
-        const newData = [];
-
-        for (let i = 1; i < jsonRows.length; i++) {
-          const rowData = jsonRows[i];
-          if (!rowData || rowData.length === 0) continue;
-          const rowObj = {};
-          newColumns.forEach((col, cIdx) => {
-            rowObj[col.key] = rowData[cIdx] !== undefined ? String(rowData[cIdx]) : "";
-          });
-          newData.push(rowObj);
-        }
-
-        const currentSheet = getActiveSheet();
-        currentSheet.columns = newColumns.length > 0 ? newColumns : defaultColumns;
-        currentSheet.data = newData;
-
-        saveData();
-        renderTable();
-        alert("Excel 檔案已成功匯入！");
-      } catch (err) {
-        console.error(err);
-        alert("匯入失敗，請確認檔案格式。");
-      } finally {
-        this.value = '';
-      }
-    });
 
     window.editProductImage = function(rowIndex, colKey = 'productImg') {
       if (!checkAuth()) return;
