@@ -857,97 +857,116 @@
       document.body.removeChild(link);
     };
 
-    // 一鍵 6 合 1 匯出高解析度圖表 PNG
-    window.exportAllChartsCombined = function() {
-      try {
-        Object.values(chartInstances).forEach(chart => chart && chart.update());
+    // 修復版：一鍵 6 合 1 匯出高解析度圖表 PNG
+window.exportAllChartsCombined = function() {
+  try {
+    // 1. 紀錄當前被選中的分頁，並將所有分頁暫時設為可見 (防止 canvas width/height = 0)
+    const pages = document.querySelectorAll('.chart-page');
+    const originalDisplays = [];
+    pages.forEach((page, idx) => {
+      originalDisplays[idx] = page.style.display;
+      page.style.display = 'flex'; // 強制顯示以獲取真實寬高與渲染
+    });
 
-        const chartsConfig = [
-          { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
-          { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
-          { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
-          { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
-          { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
-          { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
-        ];
-
-        const combinedCanvas = document.createElement('canvas');
-        const singleWidth = 750;
-        const singleHeight = 400;
-        const padding = 30;
-        const headerHeight = 70;
-
-        const cols = 3;
-        const rows = 2;
-
-        combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
-        combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
-
-        const ctx = combinedCanvas.getContext('2d');
-
-        // 背景填色
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
-
-        // 主標題
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
-
-        chartsConfig.forEach((item, index) => {
-          const srcCanvas = document.getElementById(item.id);
-          if (!srcCanvas) return;
-
-          const col = index % cols;
-          const row = Math.floor(index / cols);
-
-          const x = padding + col * (singleWidth + padding);
-          const y = headerHeight + padding + row * (singleHeight + padding);
-
-          // 卡片外框背景
-          ctx.fillStyle = '#1e293b';
-          ctx.fillRect(x, y, singleWidth, singleHeight);
-          ctx.strokeStyle = '#334155';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x, y, singleWidth, singleHeight);
-
-          // 子圖表標題
-          ctx.fillStyle = '#f8fafc';
-          ctx.font = 'bold 16px sans-serif';
-          ctx.textAlign = 'left';
-          ctx.fillText(item.title, x + 16, y + 30);
-
-          // 先幫子畫布繪製背景色以防透明
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = srcCanvas.width;
-          tempCanvas.height = srcCanvas.height;
-          const tempCtx = tempCanvas.getContext('2d');
-
-          tempCtx.fillStyle = '#1e293b';
-          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-          tempCtx.drawImage(srcCanvas, 0, 0);
-
-          // 將子畫布貼入大圖
-          const chartDrawY = y + 40;
-          const chartDrawHeight = singleHeight - 50;
-          ctx.drawImage(tempCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
-        });
-
-        // 下載圖片
-        const imageURL = combinedCanvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
-        link.href = imageURL;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (err) {
-        console.error(err);
-        alert('匯出圖表時發生錯誤：' + err.message);
+    // 2. 更新所有 Chart.js 實例以確保繪製完成
+    Object.values(chartInstances).forEach(chart => {
+      if (chart) {
+        chart.resize();
+        chart.update();
       }
-    };
+    });
 
+    const chartsConfig = [
+      { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
+      { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
+      { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
+      { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
+      { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
+      { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
+    ];
+
+    const combinedCanvas = document.createElement('canvas');
+    const singleWidth = 750;
+    const singleHeight = 400;
+    const padding = 30;
+    const headerHeight = 70;
+
+    const cols = 3;
+    const rows = 2;
+
+    combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
+    combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
+
+    const ctx = combinedCanvas.getContext('2d');
+
+    // 最外層背景填色
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+
+    // 主標題
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
+
+    chartsConfig.forEach((item, index) => {
+      const srcCanvas = document.getElementById(item.id);
+      if (!srcCanvas || srcCanvas.width === 0 || srcCanvas.height === 0) return;
+
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+
+      const x = padding + col * (singleWidth + padding);
+      const y = headerHeight + padding + row * (singleHeight + padding);
+
+      // 卡片外框背景
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(x, y, singleWidth, singleHeight);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, singleWidth, singleHeight);
+
+      // 子圖表標題
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.title, x + 16, y + 30);
+
+      // 建立臨時 Canvas 將內容畫入
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = srcCanvas.width;
+      tempCanvas.height = srcCanvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      tempCtx.fillStyle = '#1e293b';
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tempCtx.drawImage(srcCanvas, 0, 0);
+
+      // 將子畫布貼入大圖
+      const chartDrawY = y + 40;
+      const chartDrawHeight = singleHeight - 50;
+      ctx.drawImage(tempCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
+    });
+
+    // 3. 恢復原本的分頁顯示狀態
+    pages.forEach((page, idx) => {
+      page.style.display = originalDisplays[idx];
+    });
+
+    // 4. 下載圖片
+    const imageURL = combinedCanvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
+    link.href = imageURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+  } catch (err) {
+    console.error(err);
+    alert('匯出圖表時發生錯誤：' + err.message);
+  }
+};
     loadDataFromCloud();
   </script>
 </body>
