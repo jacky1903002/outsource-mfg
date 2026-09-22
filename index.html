@@ -208,8 +208,8 @@
     }
 
     .modal-large {
-      width: 950px;
-      max-width: 92vw;
+      width: 1000px;
+      max-width: 95vw;
       background: var(--card-bg);
       border: 1px solid var(--border-color);
       padding: 20px;
@@ -219,9 +219,15 @@
       gap: 12px;
     }
 
+    .chart-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
     .chart-tabs-bar {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 8px;
       overflow-x: auto;
@@ -231,10 +237,10 @@
       background: #0f172a;
       color: var(--text-muted);
       border: 1px solid var(--border-color);
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 600;
       white-space: nowrap;
     }
@@ -305,14 +311,18 @@
   <!-- 分析圖表 Modal -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal-large">
-      <h3 style="margin: 0; color: var(--accent); text-align: center; font-size: 1.3rem;">📊 衛星工廠進度追蹤</h3>
+      <div class="chart-modal-header">
+        <h3 style="margin: 0; color: var(--accent); font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
+        <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼️ 一鍵匯出所有圖表 (6合1)</button>
+      </div>
       
       <div class="chart-tabs-bar">
         <button class="chart-tab-btn active" onclick="switchChartPage('page-vendor-count', this)">FAI合格已派工-件數</button>
         <button class="chart-tab-btn" onclick="switchChartPage('page-vendor-pcs', this)">FAI合格已派工-已交貨PCS</button>
         <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending', this)">FAI待驗證-件數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-count', this)">📈 逐日累積件數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-pcs', this)">📉 逐日累積PCS數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-count', this)">📈 FAI已派工逐日累積件數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-pcs', this)">📉 FAI已派工逐日累積PCS數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending-daily', this)">⏳ FAI待驗證逐日累積件數</button>
       </div>
 
       <!-- 頁面 1: FAI合格已派工 - 件數 -->
@@ -333,16 +343,22 @@
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingChart', 'FAI待驗證件數')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 4: FAI已派工 - 逐日累積件數 -->
+      <!-- 頁面 4: FAI已派工逐日累積件數 -->
       <div id="page-daily-count" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="dailyCountChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyCountChart', 'FAI已派工_逐日累積件數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyCountChart', 'FAI已派工逐日累積件數')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 5: FAI已派工 - 逐日累積PCS數 -->
+      <!-- 頁面 5: FAI已派工逐日累積PCS數 -->
       <div id="page-daily-pcs" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="dailyPcsChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyPcsChart', 'FAI已派工_逐日累積PCS數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyPcsChart', 'FAI已派工逐日累積PCS數')">🖼️ 匯出 PNG</button>
+      </div>
+
+      <!-- 頁面 6: FAI待驗證逐日累積件數 -->
+      <div id="page-fai-pending-daily" class="chart-page">
+        <div style="flex: 1; min-height: 0;"><canvas id="faiPendingDailyChart"></canvas></div>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingDailyChart', 'FAI待驗證逐日累積件數')">🖼️ 匯出 PNG</button>
       </div>
 
       <button class="btn" style="margin-top: 6px; align-self: flex-end;" onclick="closeAnalysisModal()">關閉分析</button>
@@ -487,7 +503,6 @@
       btnEl.classList.add('active');
     };
 
-    // 通用直條圖文字標籤設定
     const datalabelsStandardConfig = {
       anchor: 'end',
       align: 'top',
@@ -496,7 +511,6 @@
       formatter: (val) => val > 0 ? val.toLocaleString() : ''
     };
 
-    // 產生「均勻顯示最多5點，邊界對齊強化」的 DataLabels 設定
     function createSampledDataLabelsConfig(totalCount) {
       const maxPoints = 5;
       const sampledIndices = new Set();
@@ -504,8 +518,8 @@
       if (totalCount <= maxPoints) {
         for (let i = 0; i < totalCount; i++) sampledIndices.add(i);
       } else {
-        sampledIndices.add(0); // 起點
-        sampledIndices.add(totalCount - 1); // 終點
+        sampledIndices.add(0);
+        sampledIndices.add(totalCount - 1);
         const step = (totalCount - 1) / (maxPoints - 1);
         for (let i = 1; i < maxPoints - 1; i++) {
           sampledIndices.add(Math.round(i * step));
@@ -514,7 +528,6 @@
 
       return {
         anchor: 'end',
-        // 最後一個數字向左對齊，避免超出右邊界被裁切
         align: (ctx) => (ctx.dataIndex === totalCount - 1 ? 'left' : 'top'),
         offset: 6,
         color: '#ffffff',
@@ -534,7 +547,7 @@
         ticks: { color: '#94a3b8' }, 
         grid: { color: '#334155' }, 
         beginAtZero: true,
-        grace: '18%' // 增加上方留白避免最高點數字貼頂
+        grace: '18%'
       }
     };
 
@@ -545,6 +558,7 @@
       const vendorPcsStats = {};
       const pendingStats = {};
       const dateDailyMap = {};
+      const pendingDailyMap = {};
 
       sheet.data.forEach(row => {
         const vendor = (row.vendor || "").trim();
@@ -559,6 +573,9 @@
 
         if (pendingVendor) {
           pendingStats[pendingVendor] = (pendingStats[pendingVendor] || 0) + 1;
+          if (assignDate) {
+            pendingDailyMap[assignDate] = (pendingDailyMap[assignDate] || 0) + 1;
+          }
         }
 
         if (assignDate) {
@@ -617,7 +634,7 @@
         }
       });
 
-      // 逐日累積計算
+      // 4 & 5. 逐日累積計算 (FAI已派工)
       const sortedDates = Object.keys(dateDailyMap).sort();
       const cumulativeCountData = [];
       const cumulativePcsData = [];
@@ -633,13 +650,13 @@
 
       const cumulativeDataLabels = createSampledDataLabelsConfig(sortedDates.length);
 
-      // 4. 逐日累積件數圖表
+      // 4. FAI已派工逐日累積件數
       chartInstances['dailyCount'] = new Chart(document.getElementById('dailyCountChart'), {
         type: 'line',
         data: {
           labels: sortedDates,
           datasets: [{
-            label: '逐日累積件數',
+            label: 'FAI已派工逐日累積件數',
             data: cumulativeCountData,
             borderColor: '#60a5fa',
             backgroundColor: 'rgba(96, 165, 250, 0.2)',
@@ -658,13 +675,13 @@
         }
       });
 
-      // 5. 逐日累積PCS數圖表
+      // 5. FAI已派工逐日累積PCS數
       chartInstances['dailyPcs'] = new Chart(document.getElementById('dailyPcsChart'), {
         type: 'line',
         data: {
           labels: sortedDates,
           datasets: [{
-            label: '逐日累積PCS數',
+            label: 'FAI已派工逐日累積PCS數',
             data: cumulativePcsData,
             borderColor: '#a78bfa',
             backgroundColor: 'rgba(167, 139, 250, 0.2)',
@@ -680,6 +697,42 @@
           layout: { padding: { right: 40, top: 10 } },
           scales: commonScalesConfig,
           plugins: { datalabels: cumulativeDataLabels }
+        }
+      });
+
+      // 6. FAI待驗證逐日累積件數
+      const sortedPendingDates = Object.keys(pendingDailyMap).sort();
+      const cumulativePendingCountData = [];
+      let runningPendingCount = 0;
+
+      sortedPendingDates.forEach(date => {
+        runningPendingCount += pendingDailyMap[date];
+        cumulativePendingCountData.push(runningPendingCount);
+      });
+
+      const pendingCumulativeDataLabels = createSampledDataLabelsConfig(sortedPendingDates.length);
+
+      chartInstances['faiPendingDaily'] = new Chart(document.getElementById('faiPendingDailyChart'), {
+        type: 'line',
+        data: {
+          labels: sortedPendingDates,
+          datasets: [{
+            label: 'FAI待驗證逐日累積件數',
+            data: cumulativePendingCountData,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+            pointBackgroundColor: '#f59e0b',
+            pointRadius: 4,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { right: 40, top: 10 } },
+          scales: commonScalesConfig,
+          plugins: { datalabels: pendingCumulativeDataLabels }
         }
       });
     }
@@ -722,25 +775,102 @@
       });
     }
 
-    // 完美保留原本高解析度 (DPR) 且一模一樣清晰度的 PNG 匯出函數
+    // 單張 PNG 匯出
     window.exportChartImage = function(canvasId, fileName) {
       const canvas = document.getElementById(canvasId);
       const ctx = canvas.getContext('2d');
 
-      // 使用 destination-over，將深色背景填入原 Canvas 圖案的最底下（不破壞原本的解析度與畫質）
       ctx.save();
       ctx.globalCompositeOperation = 'destination-over';
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      // 直接輸出原始 Canvas 數據（保持高解析度清晰度）
       const imageData = canvas.toDataURL('image/png');
-
-      // 觸發下載
       const link = document.createElement('a');
       link.download = `${fileName}_${new Date().toISOString().slice(0,10)}.png`;
       link.href = imageData;
+      link.click();
+    };
+
+    // 一鍵 6 合 1 匯出高解析度圖表 PNG
+    window.exportAllChartsCombined = function() {
+      const chartsConfig = [
+        { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
+        { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
+        { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
+        { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
+        { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
+        { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
+      ];
+
+      // 建立合併畫布 (2x3 Grid，高清晰大圖)
+      const combinedCanvas = document.createElement('canvas');
+      const singleWidth = 750;
+      const singleHeight = 400;
+      const padding = 30;
+      const headerHeight = 70;
+
+      const cols = 3;
+      const rows = 2;
+
+      combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
+      combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
+
+      const ctx = combinedCanvas.getContext('2d');
+
+      // 背景填色
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+
+      // 主標題
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
+
+      // 繪製每張圖表
+      chartsConfig.forEach((item, index) => {
+        const srcCanvas = document.getElementById(item.id);
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+
+        const x = padding + col * (singleWidth + padding);
+        const y = headerHeight + padding + row * (singleHeight + padding);
+
+        // 卡片外框背景
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, singleWidth, singleHeight, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        // 子圖表標題
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(item.title, x + 16, y + 30);
+
+        // 先幫子畫布繪製背景色以防透明
+        const srcCtx = srcCanvas.getContext('2d');
+        srcCtx.save();
+        srcCtx.globalCompositeOperation = 'destination-over';
+        srcCtx.fillStyle = '#1e293b';
+        srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
+        srcCtx.restore();
+
+        // 將子畫布貼入大圖
+        const chartDrawY = y + 40;
+        const chartDrawHeight = singleHeight - 50;
+        ctx.drawImage(srcCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
+      });
+
+      // 下載大圖
+      const link = document.createElement('a');
+      link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
+      link.href = combinedCanvas.toDataURL('image/png');
       link.click();
     };
 
