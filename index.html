@@ -317,48 +317,48 @@
       </div>
       
       <div class="chart-tabs-bar">
-        <button class="chart-tab-btn active" onclick="switchChartPage('page-vendor-count', this)">FAI合格已派工-件數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-vendor-pcs', this)">FAI合格已派工-已交貨PCS</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending', this)">FAI待驗證-件數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-count', this)">📈 FAI已派工逐日累積件數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-pcs', this)">📉 FAI已派工逐日累積PCS數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending-daily', this)">⏳ FAI待驗證逐日累積件數</button>
+        <button class="chart-tab-btn active" onclick="switchChartPage('page-vendor-count', this)">1. FAI合格已派工-件數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-vendor-pcs', this)">2. FAI合格已派工-已交貨PCS</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending', this)">3. FAI待驗證-件數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-count', this)">4. FAI已派工逐日累積件數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-daily-pcs', this)">5. FAI已派工逐日累積PCS數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending-daily', this)">6. FAI待驗證逐日累積件數</button>
       </div>
 
       <!-- 頁面 1: FAI合格已派工 - 件數 -->
       <div id="page-vendor-count" class="chart-page active">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorCountChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', 'FAI合格已派工_件數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼️ 匯出 PNG</button>
       </div>
 
       <!-- 頁面 2: FAI合格已派工 - 已交貨 PCS -->
       <div id="page-vendor-pcs" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorPcsChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorPcsChart', 'FAI合格已派工_已交貨PCS')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorPcsChart', '2. FAI合格已派工-已交貨PCS')">🖼️ 匯出 PNG</button>
       </div>
 
       <!-- 頁面 3: FAI待驗證 - 件數 -->
       <div id="page-fai-pending" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="faiPendingChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingChart', 'FAI待驗證件數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingChart', '3. FAI待驗證-件數')">🖼️ 匯出 PNG</button>
       </div>
 
       <!-- 頁面 4: FAI已派工逐日累積件數 -->
       <div id="page-daily-count" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="dailyCountChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyCountChart', 'FAI已派工逐日累積件數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyCountChart', '4. FAI已派工逐日累積件數')">🖼️ 匯出 PNG</button>
       </div>
 
       <!-- 頁面 5: FAI已派工逐日累積PCS數 -->
       <div id="page-daily-pcs" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="dailyPcsChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyPcsChart', 'FAI已派工逐日累積PCS數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyPcsChart', '5. FAI已派工逐日累積PCS數')">🖼️ 匯出 PNG</button>
       </div>
 
       <!-- 頁面 6: FAI待驗證逐日累積件數 -->
       <div id="page-fai-pending-daily" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="faiPendingDailyChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingDailyChart', 'FAI待驗證逐日累積件數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingDailyChart', '6. FAI待驗證逐日累積件數')">🖼️ 匯出 PNG</button>
       </div>
 
       <button class="btn" style="margin-top: 6px; align-self: flex-end;" onclick="closeAnalysisModal()">關閉分析</button>
@@ -385,6 +385,30 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
+
+    // 權限管理狀態
+    let isAdmin = false;
+
+    window.toggleAuth = function() {
+      if (!isAdmin) {
+        const pwd = prompt("請輸入管理員密碼：");
+        if (pwd === "admin888") { // 可依照需求自訂密碼
+          isAdmin = true;
+          document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
+          document.getElementById('user-status-text').style.color = "#34d399";
+          document.getElementById('auth-btn').innerText = "登出管理員";
+          alert("登入成功！已開啟管理員權限。");
+        } else if (pwd !== null) {
+          alert("密碼錯誤！");
+        }
+      } else {
+        isAdmin = false;
+        document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
+        document.getElementById('user-status-text').style.color = "var(--text-muted)";
+        document.getElementById('auth-btn').innerText = "管理員登入";
+        alert("已成功登出。");
+      }
+    };
 
     const defaultColumns = [
       { key: "no", label: "No." },
@@ -775,103 +799,153 @@
       });
     }
 
-    // 單張 PNG 匯出
+    // 單張 PNG 匯出（含 6合1 風格的外框與左上角白字標題）
     window.exportChartImage = function(canvasId, fileName) {
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext('2d');
+      const srcCanvas = document.getElementById(canvasId);
+      if (!srcCanvas) return;
 
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-over';
+      Object.values(chartInstances).forEach(chart => chart && chart.update());
+
+      const padding = 20;
+      const titleHeight = 40;
+      const exportWidth = srcCanvas.width + padding * 2;
+      const exportHeight = srcCanvas.height + titleHeight + padding * 2;
+
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = exportWidth;
+      exportCanvas.height = exportHeight;
+      const ctx = exportCanvas.getContext('2d');
+
+      // 最外層總背景色 (深藍色 #0f172a)
       ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
+      ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-      const imageData = canvas.toDataURL('image/png');
+      // 卡片主體背景 (#1e293b) 與 邊框 (#334155)
+      const cardX = padding;
+      const cardY = padding;
+      const cardWidth = exportWidth - padding * 2;
+      const cardHeight = exportHeight - padding * 2;
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
+
+      // 左上角標題 (白色粗體)
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(fileName, cardX + 20, cardY + 25);
+
+      // 將原圖表 Canvas 內容繪製到卡片內
+      const chartDrawX = cardX + 10;
+      const chartDrawY = cardY + titleHeight + 5;
+      const chartDrawWidth = cardWidth - 20;
+      const chartDrawHeight = cardHeight - titleHeight - 15;
+
+      ctx.drawImage(srcCanvas, chartDrawX, chartDrawY, chartDrawWidth, chartDrawHeight);
+
+      // 觸發圖片下載
+      const imageURL = exportCanvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `${fileName}_${new Date().toISOString().slice(0,10)}.png`;
-      link.href = imageData;
+      link.download = `${fileName}_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = imageURL;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     };
 
     // 一鍵 6 合 1 匯出高解析度圖表 PNG
     window.exportAllChartsCombined = function() {
-      const chartsConfig = [
-        { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
-        { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
-        { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
-        { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
-        { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
-        { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
-      ];
+      try {
+        Object.values(chartInstances).forEach(chart => chart && chart.update());
 
-      // 建立合併畫布 (2x3 Grid，高清晰大圖)
-      const combinedCanvas = document.createElement('canvas');
-      const singleWidth = 750;
-      const singleHeight = 400;
-      const padding = 30;
-      const headerHeight = 70;
+        const chartsConfig = [
+          { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
+          { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
+          { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
+          { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
+          { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
+          { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
+        ];
 
-      const cols = 3;
-      const rows = 2;
+        const combinedCanvas = document.createElement('canvas');
+        const singleWidth = 750;
+        const singleHeight = 400;
+        const padding = 30;
+        const headerHeight = 70;
 
-      combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
-      combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
+        const cols = 3;
+        const rows = 2;
 
-      const ctx = combinedCanvas.getContext('2d');
+        combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
+        combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
 
-      // 背景填色
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+        const ctx = combinedCanvas.getContext('2d');
 
-      // 主標題
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
+        // 背景填色
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
 
-      // 繪製每張圖表
-      chartsConfig.forEach((item, index) => {
-        const srcCanvas = document.getElementById(item.id);
-        const col = index % cols;
-        const row = Math.floor(index / cols);
+        // 主標題
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
 
-        const x = padding + col * (singleWidth + padding);
-        const y = headerHeight + padding + row * (singleHeight + padding);
+        chartsConfig.forEach((item, index) => {
+          const srcCanvas = document.getElementById(item.id);
+          if (!srcCanvas) return;
 
-        // 卡片外框背景
-        ctx.fillStyle = '#1e293b';
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(x, y, singleWidth, singleHeight, 10);
-        ctx.fill();
-        ctx.stroke();
+          const col = index % cols;
+          const row = Math.floor(index / cols);
 
-        // 子圖表標題
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(item.title, x + 16, y + 30);
+          const x = padding + col * (singleWidth + padding);
+          const y = headerHeight + padding + row * (singleHeight + padding);
 
-        // 先幫子畫布繪製背景色以防透明
-        const srcCtx = srcCanvas.getContext('2d');
-        srcCtx.save();
-        srcCtx.globalCompositeOperation = 'destination-over';
-        srcCtx.fillStyle = '#1e293b';
-        srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
-        srcCtx.restore();
+          // 卡片外框背景
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(x, y, singleWidth, singleHeight);
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, y, singleWidth, singleHeight);
 
-        // 將子畫布貼入大圖
-        const chartDrawY = y + 40;
-        const chartDrawHeight = singleHeight - 50;
-        ctx.drawImage(srcCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
-      });
+          // 子圖表標題
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 16px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(item.title, x + 16, y + 30);
 
-      // 下載大圖
-      const link = document.createElement('a');
-      link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
-      link.href = combinedCanvas.toDataURL('image/png');
-      link.click();
+          // 先幫子畫布繪製背景色以防透明
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = srcCanvas.width;
+          tempCanvas.height = srcCanvas.height;
+          const tempCtx = tempCanvas.getContext('2d');
+
+          tempCtx.fillStyle = '#1e293b';
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.drawImage(srcCanvas, 0, 0);
+
+          // 將子畫布貼入大圖
+          const chartDrawY = y + 40;
+          const chartDrawHeight = singleHeight - 50;
+          ctx.drawImage(tempCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
+        });
+
+        // 下載圖片
+        const imageURL = combinedCanvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = imageURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error(err);
+        alert('匯出圖表時發生錯誤：' + err.message);
+      }
     };
 
     loadDataFromCloud();
