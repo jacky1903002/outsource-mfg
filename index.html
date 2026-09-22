@@ -652,7 +652,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          layout: { padding: { right: 40, top: 10 } }, // 增加右側留白防裁切
+          layout: { padding: { right: 40, top: 10 } },
           scales: commonScalesConfig,
           plugins: { datalabels: cumulativeDataLabels }
         }
@@ -677,7 +677,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          layout: { padding: { right: 40, top: 10 } }, // 增加右側留白防裁切
+          layout: { padding: { right: 40, top: 10 } },
           scales: commonScalesConfig,
           plugins: { datalabels: cumulativeDataLabels }
         }
@@ -722,26 +722,25 @@
       });
     }
 
-    // 匯出圖表 PNG（帶深色背景填滿，解決白字在透明底看不見問題）
+    // 完美保留原本高解析度 (DPR) 且一模一樣清晰度的 PNG 匯出函數
     window.exportChartImage = function(canvasId, fileName) {
       const canvas = document.getElementById(canvasId);
-      
-      // 建立臨時畫布補齊深色背景
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      const ctx = tempCanvas.getContext('2d');
+      const ctx = canvas.getContext('2d');
 
-      // 填滿深色背景
+      // 使用 destination-over，將深色背景填入原 Canvas 圖案的最底下（不破壞原本的解析度與畫質）
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
       ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
 
-      // 將原始圖表疊加繪製上去
-      ctx.drawImage(canvas, 0, 0);
+      // 直接輸出原始 Canvas 數據（保持高解析度清晰度）
+      const imageData = canvas.toDataURL('image/png');
 
+      // 觸發下載
       const link = document.createElement('a');
       link.download = `${fileName}_${new Date().toISOString().slice(0,10)}.png`;
-      link.href = tempCanvas.toDataURL('image/png');
+      link.href = imageData;
       link.click();
     };
 
