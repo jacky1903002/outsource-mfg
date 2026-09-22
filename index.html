@@ -496,10 +496,9 @@
       formatter: (val) => val > 0 ? val.toLocaleString() : ''
     };
 
-    // 產生「均勻抽樣最多10點」的 DataLabels 邏輯
+    // 產生「無外框、無背景、均勻顯示最多5點」的 DataLabels 設定
     function createSampledDataLabelsConfig(totalCount) {
-      // 算出抽樣的索引點 (包含頭尾，最多10點)
-      const maxPoints = 10;
+      const maxPoints = 5; // 最多顯示 5 個數字
       const sampledIndices = new Set();
       
       if (totalCount <= maxPoints) {
@@ -516,16 +515,13 @@
       return {
         anchor: 'end',
         align: 'top',
-        offset: 4,
-        color: '#ffffff',
-        backgroundColor: 'rgba(15, 23, 42, 0.9)', // 深色小框框
-        borderColor: '#38bdf8',
-        borderWidth: 1,
-        borderRadius: 4,
-        padding: { top: 2, bottom: 2, left: 6, right: 6 },
-        font: { weight: 'bold', size: 11 },
+        offset: 6,
+        color: '#ffffff', // 白字純文字
+        backgroundColor: null, // 無背景
+        borderWidth: 0, // 無外框
+        font: { weight: 'bold', size: 12 },
         formatter: (val, ctx) => {
-          // 若不在抽樣索引內，就不顯示數字
+          // 若不在抽樣 5 點索引內，不顯示
           if (!sampledIndices.has(ctx.dataIndex)) return '';
           return val.toLocaleString();
         }
@@ -635,7 +631,7 @@
         cumulativePcsData.push(runningPcs);
       });
 
-      // 生成均勻抽樣 (最多10個數值) 的 DataLabels 設定
+      // 生成最多 5 個數字、無外框無背景的 DataLabels 設定
       const cumulativeDataLabels = createSampledDataLabelsConfig(sortedDates.length);
 
       // 4. 逐日累積件數圖表
