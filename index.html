@@ -162,7 +162,8 @@
     .btn:hover { border-color: var(--accent); color: var(--accent); }
     .btn-primary { background-color: #0284c7; color: #fff; border: none; }
     .btn-primary:hover { background-color: #0369a1; color: #fff; }
-    .btn-danger { background-color: var(--danger); color: #fff; border: none; }
+    .btn-success { background-color: #10b981; color: #fff; border: none; }
+    .btn-success:hover { background-color: #059669; }
 
     .table-scroll-container {
       flex: 1;
@@ -284,6 +285,11 @@
     <div class="tab-content">
       <div class="toolbar">
         <button class="btn btn-primary" style="background-color: #8b5cf6;" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
+        <!-- 新增 匯入與匯出按鈕 -->
+        <button class="btn btn-success" onclick="exportToExcel()">📥 匯出 Excel</button>
+        <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
+        <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
+        
         <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto;">☁️ 雲端載入中...</span>
       </div>
 
@@ -296,7 +302,7 @@
     </div>
   </div>
 
-  <!-- 分析圖表 Modal (一圖一頁 / 分頁瀏覽) -->
+  <!-- 分析圖表 Modal -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal-large">
       <h3 style="margin: 0; color: var(--accent); text-align: center; font-size: 1.3rem;">📊 衛星工廠進度追蹤</h3>
@@ -425,6 +431,52 @@
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
     }
 
+    // 匯出 Excel
+    window.exportToExcel = function() {
+      const sheet = getActiveSheet();
+      const exportData = sheet.data.map(row => {
+        let mapped = {};
+        sheet.columns.forEach(col => {
+          mapped[col.label] = row[col.key] || "";
+        });
+        return mapped;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, worksheet, sheet.name);
+      XLSX.writeFile(wb, `${sheet.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    };
+
+    // 匯入 Excel
+    window.importFromExcel = function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const readWb = XLSX.read(data, { type: 'array' });
+        const firstSheetName = readWb.SheetNames[0];
+        const worksheet = readWb.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        const currentSheet = getActiveSheet();
+        currentSheet.data = jsonData.map(item => {
+          let newRow = {};
+          currentSheet.columns.forEach(col => {
+            newRow[col.key] = item[col.label] || item[col.key] || "";
+          });
+          return newRow;
+        });
+
+        renderTable();
+        saveData();
+        alert("Excel 匯入成功！");
+      };
+      reader.readAsArrayBuffer(file);
+    };
+
     window.openAnalysisModal = function() {
       document.getElementById('analysis-modal').style.display = 'flex';
       renderChart();
@@ -442,6 +494,15 @@
       btnEl.classList.add('active');
     };
 
+    // 設定圖表文字為醒目的白色粗體標籤
+    const datalabelsWhiteConfig = {
+      anchor: 'end',
+      align: 'top',
+      color: '#ffffff',
+      font: { weight: 'bold', size: 12 },
+      formatter: (value) => value > 0 ? value : ''
+    };
+
     const commonScalesConfig = {
       x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
       y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
@@ -453,7 +514,7 @@
       const vendorStats = {};
       const vendorPcsStats = {};
       const pendingStats = {};
-      const dateDailyMap = {}; 
+      const dateDailyMap = {};
 
       sheet.data.forEach(row => {
         const vendor = (row.vendor || "").trim();
@@ -489,7 +550,12 @@
           labels: Object.keys(vendorStats),
           datasets: [{ label: '已派工件數', data: Object.values(vendorStats), backgroundColor: '#38bdf8' }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: commonScalesConfig,
+          plugins: { datalabels: datalabelsWhiteConfig }
+        }
       });
 
       // 2. FAI合格已交貨PCS
@@ -499,7 +565,12 @@
           labels: Object.keys(vendorPcsStats),
           datasets: [{ label: '已交貨 (PCS)', data: Object.values(vendorPcsStats), backgroundColor: '#34d399' }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: commonScalesConfig,
+          plugins: { datalabels: datalabelsWhiteConfig }
+        }
       });
 
       // 3. FAI待驗證件數
@@ -509,7 +580,12 @@
           labels: Object.keys(pendingStats),
           datasets: [{ label: '待驗證件數', data: Object.values(pendingStats), backgroundColor: '#fbbf24' }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: commonScalesConfig,
+          plugins: { datalabels: datalabelsWhiteConfig }
+        }
       });
 
       // 計算逐日累積數據
@@ -540,7 +616,12 @@
             tension: 0.3
           }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: commonScalesConfig,
+          plugins: { datalabels: datalabelsWhiteConfig }
+        }
       });
 
       // 5. 逐日累積PCS數圖表
@@ -557,7 +638,12 @@
             tension: 0.3
           }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: commonScalesConfig,
+          plugins: { datalabels: datalabelsWhiteConfig }
+        }
       });
     }
 
