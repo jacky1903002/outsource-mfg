@@ -496,9 +496,9 @@
       formatter: (val) => val > 0 ? val.toLocaleString() : ''
     };
 
-    // 產生「無外框、無背景、均勻顯示最多5點」的 DataLabels 設定
+    // 產生「均勻顯示最多5點，邊界對齊強化」的 DataLabels 設定
     function createSampledDataLabelsConfig(totalCount) {
-      const maxPoints = 5; // 最多顯示 5 個數字
+      const maxPoints = 5;
       const sampledIndices = new Set();
       
       if (totalCount <= maxPoints) {
@@ -514,14 +514,14 @@
 
       return {
         anchor: 'end',
-        align: 'top',
+        // 最後一個數字向左對齊，避免超出右邊界被裁切
+        align: (ctx) => (ctx.dataIndex === totalCount - 1 ? 'left' : 'top'),
         offset: 6,
-        color: '#ffffff', // 白字純文字
-        backgroundColor: null, // 無背景
-        borderWidth: 0, // 無外框
+        color: '#ffffff',
+        backgroundColor: null,
+        borderWidth: 0,
         font: { weight: 'bold', size: 12 },
         formatter: (val, ctx) => {
-          // 若不在抽樣 5 點索引內，不顯示
           if (!sampledIndices.has(ctx.dataIndex)) return '';
           return val.toLocaleString();
         }
@@ -534,7 +534,7 @@
         ticks: { color: '#94a3b8' }, 
         grid: { color: '#334155' }, 
         beginAtZero: true,
-        grace: '15%'
+        grace: '18%' // 增加上方留白避免最高點數字貼頂
       }
     };
 
@@ -631,7 +631,6 @@
         cumulativePcsData.push(runningPcs);
       });
 
-      // 生成最多 5 個數字、無外框無背景的 DataLabels 設定
       const cumulativeDataLabels = createSampledDataLabelsConfig(sortedDates.length);
 
       // 4. 逐日累積件數圖表
@@ -653,6 +652,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { right: 40, top: 10 } }, // 增加右側留白防裁切
           scales: commonScalesConfig,
           plugins: { datalabels: cumulativeDataLabels }
         }
@@ -677,6 +677,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { right: 40, top: 10 } }, // 增加右側留白防裁切
           scales: commonScalesConfig,
           plugins: { datalabels: cumulativeDataLabels }
         }
@@ -721,11 +722,26 @@
       });
     }
 
+    // 匯出圖表 PNG（帶深色背景填滿，解決白字在透明底看不見問題）
     window.exportChartImage = function(canvasId, fileName) {
       const canvas = document.getElementById(canvasId);
+      
+      // 建立臨時畫布補齊深色背景
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const ctx = tempCanvas.getContext('2d');
+
+      // 填滿深色背景
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+      // 將原始圖表疊加繪製上去
+      ctx.drawImage(canvas, 0, 0);
+
       const link = document.createElement('a');
       link.download = `${fileName}_${new Date().toISOString().slice(0,10)}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = tempCanvas.toDataURL('image/png');
       link.click();
     };
 
