@@ -208,8 +208,8 @@
     }
 
     .modal-large {
-      width: 900px;
-      max-width: 90vw;
+      width: 950px;
+      max-width: 92vw;
       background: var(--card-bg);
       border: 1px solid var(--border-color);
       padding: 20px;
@@ -219,12 +219,12 @@
       gap: 12px;
     }
 
-    /* 分析圖表分頁專用樣式 */
     .chart-tabs-bar {
       display: flex;
       gap: 8px;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 8px;
+      overflow-x: auto;
     }
 
     .chart-tab-btn {
@@ -236,6 +236,7 @@
       cursor: pointer;
       font-size: 0.85rem;
       font-weight: 600;
+      white-space: nowrap;
     }
 
     .chart-tab-btn.active {
@@ -246,7 +247,7 @@
 
     .chart-page {
       display: none;
-      height: 420px;
+      height: 450px;
       background: #0f172a;
       padding: 16px;
       border-radius: 8px;
@@ -285,7 +286,6 @@
     <div class="tab-content">
       <div class="toolbar">
         <button class="btn btn-primary" style="background-color: #8b5cf6;" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
-        <!-- 新增 匯入與匯出按鈕 -->
         <button class="btn btn-success" onclick="exportToExcel()">📥 匯出 Excel</button>
         <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
         <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
@@ -307,7 +307,6 @@
     <div class="modal-large">
       <h3 style="margin: 0; color: var(--accent); text-align: center; font-size: 1.3rem;">📊 衛星工廠進度追蹤</h3>
       
-      <!-- 圖表分頁切換按鈕 -->
       <div class="chart-tabs-bar">
         <button class="chart-tab-btn active" onclick="switchChartPage('page-vendor-count', this)">FAI合格已派工-件數</button>
         <button class="chart-tab-btn" onclick="switchChartPage('page-vendor-pcs', this)">FAI合格已派工-已交貨PCS</button>
@@ -350,7 +349,6 @@
     </div>
   </div>
 
-  <!-- Firebase & JS 邏輯 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -386,7 +384,6 @@
 
     let workbook = [{ id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: [] }];
     let activeSheetId = "sheet_1";
-
     let chartInstances = {};
 
     async function saveData() {
@@ -431,14 +428,11 @@
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
     }
 
-    // 匯出 Excel
     window.exportToExcel = function() {
       const sheet = getActiveSheet();
       const exportData = sheet.data.map(row => {
         let mapped = {};
-        sheet.columns.forEach(col => {
-          mapped[col.label] = row[col.key] || "";
-        });
+        sheet.columns.forEach(col => { mapped[col.label] = row[col.key] || ""; });
         return mapped;
       });
 
@@ -448,7 +442,6 @@
       XLSX.writeFile(wb, `${sheet.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
     };
 
-    // 匯入 Excel
     window.importFromExcel = function(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -494,18 +487,43 @@
       btnEl.classList.add('active');
     };
 
-    // 設定圖表文字為醒目的白色粗體標籤
-    const datalabelsWhiteConfig = {
+    // 通用直條圖文字標籤設定 (簡短數字)
+    const datalabelsStandardConfig = {
       anchor: 'end',
       align: 'top',
       color: '#ffffff',
       font: { weight: 'bold', size: 12 },
-      formatter: (value) => value > 0 ? value : ''
+      formatter: (val) => val > 0 ? val.toLocaleString() : ''
+    };
+
+    // 逐日累積折線圖專用高清晰度標籤設定
+    const datalabelsCumulativeConfig = {
+      anchor: 'end',
+      align: 'top',
+      offset: 4,
+      color: '#ffffff',
+      backgroundColor: 'rgba(15, 23, 42, 0.85)', // 深色背景背景框
+      borderColor: '#38bdf8',
+      borderWidth: 1,
+      borderRadius: 4,
+      padding: { top: 2, bottom: 2, left: 6, right: 6 },
+      font: { weight: 'bold', size: 11 },
+      formatter: (val) => {
+        if (!val) return '';
+        if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+        return val.toLocaleString();
+      }
     };
 
     const commonScalesConfig = {
       x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-      y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
+      y: { 
+        ticks: { color: '#94a3b8' }, 
+        grid: { color: '#334155' }, 
+        beginAtZero: true,
+        grace: '15%' // 增加上方留白避免標籤超出畫布
+      }
     };
 
     function renderChart() {
@@ -540,7 +558,6 @@
         }
       });
 
-      // 清除舊圖表
       Object.keys(chartInstances).forEach(key => chartInstances[key]?.destroy());
 
       // 1. FAI合格件數
@@ -554,7 +571,7 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsWhiteConfig }
+          plugins: { datalabels: datalabelsStandardConfig }
         }
       });
 
@@ -569,7 +586,7 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsWhiteConfig }
+          plugins: { datalabels: datalabelsStandardConfig }
         }
       });
 
@@ -584,11 +601,11 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsWhiteConfig }
+          plugins: { datalabels: datalabelsStandardConfig }
         }
       });
 
-      // 計算逐日累積數據
+      // 逐日累積計算
       const sortedDates = Object.keys(dateDailyMap).sort();
       const cumulativeCountData = [];
       const cumulativePcsData = [];
@@ -602,7 +619,7 @@
         cumulativePcsData.push(runningPcs);
       });
 
-      // 4. 逐日累積件數圖表
+      // 4. 逐日累積件數圖表 (大數值優化)
       chartInstances['dailyCount'] = new Chart(document.getElementById('dailyCountChart'), {
         type: 'line',
         data: {
@@ -612,6 +629,8 @@
             data: cumulativeCountData,
             borderColor: '#60a5fa',
             backgroundColor: 'rgba(96, 165, 250, 0.2)',
+            pointBackgroundColor: '#60a5fa',
+            pointRadius: 4,
             fill: true,
             tension: 0.3
           }]
@@ -620,11 +639,11 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsWhiteConfig }
+          plugins: { datalabels: datalabelsCumulativeConfig }
         }
       });
 
-      // 5. 逐日累積PCS數圖表
+      // 5. 逐日累積PCS數圖表 (大數值優化)
       chartInstances['dailyPcs'] = new Chart(document.getElementById('dailyPcsChart'), {
         type: 'line',
         data: {
@@ -634,6 +653,8 @@
             data: cumulativePcsData,
             borderColor: '#a78bfa',
             backgroundColor: 'rgba(167, 139, 250, 0.2)',
+            pointBackgroundColor: '#a78bfa',
+            pointRadius: 4,
             fill: true,
             tension: 0.3
           }]
@@ -642,7 +663,7 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsWhiteConfig }
+          plugins: { datalabels: datalabelsCumulativeConfig }
         }
       });
     }
