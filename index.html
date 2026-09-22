@@ -487,7 +487,7 @@
       btnEl.classList.add('active');
     };
 
-    // 通用直條圖文字標籤設定 (簡短數字)
+    // 通用直條圖文字標籤設定
     const datalabelsStandardConfig = {
       anchor: 'end',
       align: 'top',
@@ -496,25 +496,41 @@
       formatter: (val) => val > 0 ? val.toLocaleString() : ''
     };
 
-    // 逐日累積折線圖專用高清晰度標籤設定
-    const datalabelsCumulativeConfig = {
-      anchor: 'end',
-      align: 'top',
-      offset: 4,
-      color: '#ffffff',
-      backgroundColor: 'rgba(15, 23, 42, 0.85)', // 深色背景背景框
-      borderColor: '#38bdf8',
-      borderWidth: 1,
-      borderRadius: 4,
-      padding: { top: 2, bottom: 2, left: 6, right: 6 },
-      font: { weight: 'bold', size: 11 },
-      formatter: (val) => {
-        if (!val) return '';
-        if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
-        if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-        return val.toLocaleString();
+    // 產生「均勻抽樣最多10點」的 DataLabels 邏輯
+    function createSampledDataLabelsConfig(totalCount) {
+      // 算出抽樣的索引點 (包含頭尾，最多10點)
+      const maxPoints = 10;
+      const sampledIndices = new Set();
+      
+      if (totalCount <= maxPoints) {
+        for (let i = 0; i < totalCount; i++) sampledIndices.add(i);
+      } else {
+        sampledIndices.add(0); // 起點
+        sampledIndices.add(totalCount - 1); // 終點
+        const step = (totalCount - 1) / (maxPoints - 1);
+        for (let i = 1; i < maxPoints - 1; i++) {
+          sampledIndices.add(Math.round(i * step));
+        }
       }
-    };
+
+      return {
+        anchor: 'end',
+        align: 'top',
+        offset: 4,
+        color: '#ffffff',
+        backgroundColor: 'rgba(15, 23, 42, 0.9)', // 深色小框框
+        borderColor: '#38bdf8',
+        borderWidth: 1,
+        borderRadius: 4,
+        padding: { top: 2, bottom: 2, left: 6, right: 6 },
+        font: { weight: 'bold', size: 11 },
+        formatter: (val, ctx) => {
+          // 若不在抽樣索引內，就不顯示數字
+          if (!sampledIndices.has(ctx.dataIndex)) return '';
+          return val.toLocaleString();
+        }
+      };
+    }
 
     const commonScalesConfig = {
       x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
@@ -522,7 +538,7 @@
         ticks: { color: '#94a3b8' }, 
         grid: { color: '#334155' }, 
         beginAtZero: true,
-        grace: '15%' // 增加上方留白避免標籤超出畫布
+        grace: '15%'
       }
     };
 
@@ -619,7 +635,10 @@
         cumulativePcsData.push(runningPcs);
       });
 
-      // 4. 逐日累積件數圖表 (大數值優化)
+      // 生成均勻抽樣 (最多10個數值) 的 DataLabels 設定
+      const cumulativeDataLabels = createSampledDataLabelsConfig(sortedDates.length);
+
+      // 4. 逐日累積件數圖表
       chartInstances['dailyCount'] = new Chart(document.getElementById('dailyCountChart'), {
         type: 'line',
         data: {
@@ -639,11 +658,11 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsCumulativeConfig }
+          plugins: { datalabels: cumulativeDataLabels }
         }
       });
 
-      // 5. 逐日累積PCS數圖表 (大數值優化)
+      // 5. 逐日累積PCS數圖表
       chartInstances['dailyPcs'] = new Chart(document.getElementById('dailyPcsChart'), {
         type: 'line',
         data: {
@@ -663,7 +682,7 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsCumulativeConfig }
+          plugins: { datalabels: cumulativeDataLabels }
         }
       });
     }
