@@ -308,17 +308,17 @@
     </div>
   </div>
 
-  <!-- 自訂登入 Modal -->
+  <!-- Firebase 登入 Modal -->
   <div id="login-modal" class="modal-backdrop">
     <div class="modal-large" style="width: 400px;">
-      <h3 style="margin: 0; color: var(--accent); font-size: 1.2rem;">🔐 管理員登入</h3>
+      <h3 style="margin: 0; color: var(--accent); font-size: 1.2rem;">🔐 管理員登入 (Firebase Auth)</h3>
       <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
         <label style="font-size: 0.9rem; color: var(--text-muted);">
-          帳號：
-          <input type="text" id="login-account" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="請輸入帳號" />
+          電子郵件 (Email)：
+          <input type="email" id="login-email" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="admin@example.com" />
         </label>
         <label style="font-size: 0.9rem; color: var(--text-muted);">
-          密碼：
+          密碼 (Password)：
           <input type="password" id="login-password" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="請輸入密碼" />
         </label>
       </div>
@@ -389,6 +389,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     if (typeof ChartDataLabels !== 'undefined') {
       Chart.register(ChartDataLabels);
@@ -405,22 +406,40 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
 
     // 權限管理狀態
     let isAdmin = false;
 
-    window.toggleAuth = function() {
-      if (!isAdmin) {
-        document.getElementById('login-account').value = '';
-        document.getElementById('login-password').value = '';
-        document.getElementById('login-modal').style.display = 'flex';
+    // 監聽 Firebase 登入狀態
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        isAdmin = true;
+        document.getElementById('user-status-text').innerText = `權限：管理員 (${user.email})`;
+        document.getElementById('user-status-text').style.color = "#34d399";
+        document.getElementById('auth-btn').innerText = "登出管理員";
       } else {
         isAdmin = false;
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
         document.getElementById('user-status-text').style.color = "var(--text-muted)";
         document.getElementById('auth-btn').innerText = "管理員登入";
-        alert("已成功登出。");
+      }
+    });
+
+    window.toggleAuth = async function() {
+      if (!isAdmin) {
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-password').value = '';
+        document.getElementById('login-modal').style.display = 'flex';
+      } else {
+        try {
+          await signOut(auth);
+          alert("已成功登出。");
+        } catch (error) {
+          console.error(error);
+          alert("登出發生錯誤：" + error.message);
+        }
       }
     };
 
@@ -428,20 +447,22 @@
       document.getElementById('login-modal').style.display = 'none';
     };
 
-    window.submitLogin = function() {
-      const acc = document.getElementById('login-account').value.trim();
+    window.submitLogin = async function() {
+      const email = document.getElementById('login-email').value.trim();
       const pwd = document.getElementById('login-password').value.trim();
 
-      // 在這裡可以自行修改帳號與密碼
-      if (acc === "admin" && pwd === "admin888") {
-        isAdmin = true;
-        document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
-        document.getElementById('user-status-text').style.color = "#34d399";
-        document.getElementById('auth-btn').innerText = "登出管理員";
+      if (!email || !pwd) {
+        alert("請輸入電子郵件與密碼！");
+        return;
+      }
+
+      try {
+        await signInWithEmailAndPassword(auth, email, pwd);
         closeLoginModal();
         alert("登入成功！已開啟管理員權限。");
-      } else {
-        alert("帳號或密碼錯誤！");
+      } catch (error) {
+        console.error(error);
+        alert("登入失敗，請檢查 Email 或密碼是否正確。\n錯誤訊息：" + error.message);
       }
     };
 
