@@ -308,6 +308,27 @@
     </div>
   </div>
 
+  <!-- 自訂登入 Modal -->
+  <div id="login-modal" class="modal-backdrop">
+    <div class="modal-large" style="width: 400px;">
+      <h3 style="margin: 0; color: var(--accent); font-size: 1.2rem;">🔐 管理員登入</h3>
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+        <label style="font-size: 0.9rem; color: var(--text-muted);">
+          帳號：
+          <input type="text" id="login-account" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="請輸入帳號" />
+        </label>
+        <label style="font-size: 0.9rem; color: var(--text-muted);">
+          密碼：
+          <input type="password" id="login-password" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="請輸入密碼" />
+        </label>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+        <button class="btn" onclick="closeLoginModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitLogin()">登入</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 分析圖表 Modal -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal-large">
@@ -391,22 +412,36 @@
 
     window.toggleAuth = function() {
       if (!isAdmin) {
-        const pwd = prompt("請輸入管理員密碼：");
-        if (pwd === "admin888") { // 可依照需求自訂密碼
-          isAdmin = true;
-          document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
-          document.getElementById('user-status-text').style.color = "#34d399";
-          document.getElementById('auth-btn').innerText = "登出管理員";
-          alert("登入成功！已開啟管理員權限。");
-        } else if (pwd !== null) {
-          alert("密碼錯誤！");
-        }
+        document.getElementById('login-account').value = '';
+        document.getElementById('login-password').value = '';
+        document.getElementById('login-modal').style.display = 'flex';
       } else {
         isAdmin = false;
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
         document.getElementById('user-status-text').style.color = "var(--text-muted)";
         document.getElementById('auth-btn').innerText = "管理員登入";
         alert("已成功登出。");
+      }
+    };
+
+    window.closeLoginModal = function() {
+      document.getElementById('login-modal').style.display = 'none';
+    };
+
+    window.submitLogin = function() {
+      const acc = document.getElementById('login-account').value.trim();
+      const pwd = document.getElementById('login-password').value.trim();
+
+      // 在這裡可以自行修改帳號與密碼
+      if (acc === "admin" && pwd === "admin888") {
+        isAdmin = true;
+        document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
+        document.getElementById('user-status-text').style.color = "#34d399";
+        document.getElementById('auth-btn').innerText = "登出管理員";
+        closeLoginModal();
+        alert("登入成功！已開啟管理員權限。");
+      } else {
+        alert("帳號或密碼錯誤！");
       }
     };
 
@@ -799,7 +834,7 @@
       });
     }
 
-    // 單張 PNG 匯出（含 6合1 風格的外框與左上角白字標題）
+    // 單張 PNG 匯出
     window.exportChartImage = function(canvasId, fileName) {
       const srcCanvas = document.getElementById(canvasId);
       if (!srcCanvas) return;
@@ -816,11 +851,9 @@
       exportCanvas.height = exportHeight;
       const ctx = exportCanvas.getContext('2d');
 
-      // 最外層總背景色 (深藍色 #0f172a)
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-      // 卡片主體背景 (#1e293b) 與 邊框 (#334155)
       const cardX = padding;
       const cardY = padding;
       const cardWidth = exportWidth - padding * 2;
@@ -832,14 +865,12 @@
       ctx.lineWidth = 2;
       ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
 
-      // 左上角標題 (白色粗體)
       ctx.fillStyle = '#f8fafc';
       ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(fileName, cardX + 20, cardY + 25);
 
-      // 將原圖表 Canvas 內容繪製到卡片內
       const chartDrawX = cardX + 10;
       const chartDrawY = cardY + titleHeight + 5;
       const chartDrawWidth = cardWidth - 20;
@@ -847,7 +878,6 @@
 
       ctx.drawImage(srcCanvas, chartDrawX, chartDrawY, chartDrawWidth, chartDrawHeight);
 
-      // 觸發圖片下載
       const imageURL = exportCanvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `${fileName}_${new Date().toISOString().slice(0, 10)}.png`;
@@ -857,116 +887,107 @@
       document.body.removeChild(link);
     };
 
-    // 修復版：一鍵 6 合 1 匯出高解析度圖表 PNG
-window.exportAllChartsCombined = function() {
-  try {
-    // 1. 紀錄當前被選中的分頁，並將所有分頁暫時設為可見 (防止 canvas width/height = 0)
-    const pages = document.querySelectorAll('.chart-page');
-    const originalDisplays = [];
-    pages.forEach((page, idx) => {
-      originalDisplays[idx] = page.style.display;
-      page.style.display = 'flex'; // 強制顯示以獲取真實寬高與渲染
-    });
+    // 一鍵 6 合 1 匯出高解析度圖表 PNG
+    window.exportAllChartsCombined = function() {
+      try {
+        const pages = document.querySelectorAll('.chart-page');
+        const originalDisplays = [];
+        pages.forEach((page, idx) => {
+          originalDisplays[idx] = page.style.display;
+          page.style.display = 'flex';
+        });
 
-    // 2. 更新所有 Chart.js 實例以確保繪製完成
-    Object.values(chartInstances).forEach(chart => {
-      if (chart) {
-        chart.resize();
-        chart.update();
+        Object.values(chartInstances).forEach(chart => {
+          if (chart) {
+            chart.resize();
+            chart.update();
+          }
+        });
+
+        const chartsConfig = [
+          { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
+          { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
+          { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
+          { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
+          { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
+          { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
+        ];
+
+        const combinedCanvas = document.createElement('canvas');
+        const singleWidth = 750;
+        const singleHeight = 400;
+        const padding = 30;
+        const headerHeight = 70;
+
+        const cols = 3;
+        const rows = 2;
+
+        combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
+        combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
+
+        const ctx = combinedCanvas.getContext('2d');
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
+
+        chartsConfig.forEach((item, index) => {
+          const srcCanvas = document.getElementById(item.id);
+          if (!srcCanvas || srcCanvas.width === 0 || srcCanvas.height === 0) return;
+
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+
+          const x = padding + col * (singleWidth + padding);
+          const y = headerHeight + padding + row * (singleHeight + padding);
+
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(x, y, singleWidth, singleHeight);
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, y, singleWidth, singleHeight);
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 16px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(item.title, x + 16, y + 30);
+
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = srcCanvas.width;
+          tempCanvas.height = srcCanvas.height;
+          const tempCtx = tempCanvas.getContext('2d');
+
+          tempCtx.fillStyle = '#1e293b';
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.drawImage(srcCanvas, 0, 0);
+
+          const chartDrawY = y + 40;
+          const chartDrawHeight = singleHeight - 50;
+          ctx.drawImage(tempCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
+        });
+
+        pages.forEach((page, idx) => {
+          page.style.display = originalDisplays[idx];
+        });
+
+        const imageURL = combinedCanvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = imageURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+      } catch (err) {
+        console.error(err);
+        alert('匯出圖表時發生錯誤：' + err.message);
       }
-    });
+    };
 
-    const chartsConfig = [
-      { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
-      { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
-      { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
-      { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
-      { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
-      { id: 'faiPendingDailyChart', title: '6. FAI待驗證逐日累積件數' }
-    ];
-
-    const combinedCanvas = document.createElement('canvas');
-    const singleWidth = 750;
-    const singleHeight = 400;
-    const padding = 30;
-    const headerHeight = 70;
-
-    const cols = 3;
-    const rows = 2;
-
-    combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
-    combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
-
-    const ctx = combinedCanvas.getContext('2d');
-
-    // 最外層背景填色
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
-
-    // 主標題
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 28px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
-
-    chartsConfig.forEach((item, index) => {
-      const srcCanvas = document.getElementById(item.id);
-      if (!srcCanvas || srcCanvas.width === 0 || srcCanvas.height === 0) return;
-
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-
-      const x = padding + col * (singleWidth + padding);
-      const y = headerHeight + padding + row * (singleHeight + padding);
-
-      // 卡片外框背景
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(x, y, singleWidth, singleHeight);
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, singleWidth, singleHeight);
-
-      // 子圖表標題
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(item.title, x + 16, y + 30);
-
-      // 建立臨時 Canvas 將內容畫入
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = srcCanvas.width;
-      tempCanvas.height = srcCanvas.height;
-      const tempCtx = tempCanvas.getContext('2d');
-
-      tempCtx.fillStyle = '#1e293b';
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-      tempCtx.drawImage(srcCanvas, 0, 0);
-
-      // 將子畫布貼入大圖
-      const chartDrawY = y + 40;
-      const chartDrawHeight = singleHeight - 50;
-      ctx.drawImage(tempCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
-    });
-
-    // 3. 恢復原本的分頁顯示狀態
-    pages.forEach((page, idx) => {
-      page.style.display = originalDisplays[idx];
-    });
-
-    // 4. 下載圖片
-    const imageURL = combinedCanvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
-    link.href = imageURL;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-  } catch (err) {
-    console.error(err);
-    alert('匯出圖表時發生錯誤：' + err.message);
-  }
-};
     loadDataFromCloud();
   </script>
 </body>
