@@ -3,25 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>委外廠商製作進度追蹤表 (雲端進階版)</title>
-  <!-- 引入 SheetJS, JSZip, Chart.js 與 Chart.js DataLabels 套件 -->
+  <title>委外廠商製作進度追蹤表 (專業商業版)</title>
+  <!-- 引入 SheetJS, JSZip, Chart.js, Chart.js DataLabels 與 html2canvas 套件 -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   
   <style>
     :root {
-      --bg-color: #0b1329;
-      --card-bg: #1e293b;
-      --border-color: #334155;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent: #38bdf8;
-      --accent-hover: #0284c7;
-      --success: #34d399;
-      --warning: #fbbf24;
-      --danger: #ef4444;
+      /* 專業商業微淺色系：完美適配簡報PPT，視覺清爽高雅 */
+      --bg-color: #f1f5f9;
+      --card-bg: #ffffff;
+      --border-color: #cbd5e1;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --table-header-bg: #e2e8f0;
+      --table-hover: #f8fafc;
     }
 
     * { box-sizing: border-box; }
@@ -60,20 +64,21 @@
     }
 
     .badge-pro {
-      background: linear-gradient(135deg, #0284c7, #6366f1);
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
       color: #fff;
       font-size: 0.75rem;
       font-weight: 800;
-      padding: 2px 8px;
+      padding: 3px 10px;
       border-radius: 4px;
       letter-spacing: 0.05em;
+      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
     }
 
     h1 {
       margin: 0;
       font-size: 1.8rem;
       font-weight: 700;
-      color: var(--accent);
+      color: #0f172a;
       display: inline-flex;
       align-items: baseline;
       gap: 12px;
@@ -95,7 +100,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      background: #0f172a;
+      background: #e2e8f0;
       padding: 6px 12px;
       border-radius: 8px 8px 0 0;
       border: 1px solid var(--border-color);
@@ -108,21 +113,28 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      background: var(--card-bg);
+      background: #ffffff;
       color: var(--text-muted);
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 6px;
       font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
       border: 1px solid var(--border-color);
       user-select: none;
+      transition: all 0.2s;
+    }
+
+    .sheet-tab:hover {
+      color: var(--accent);
+      background: #f8fafc;
     }
 
     .sheet-tab.active {
       background: #0284c7;
       color: #fff;
-      border-color: #38bdf8;
+      border-color: #0284c7;
+      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
     }
 
     .tab-content {
@@ -133,14 +145,14 @@
       background-color: var(--card-bg);
       border-radius: 0 0 8px 8px;
       border: 1px solid var(--border-color);
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
     }
 
     .toolbar {
       display: flex;
       gap: 8px;
       padding: 12px 16px;
-      background-color: var(--card-bg);
+      background-color: #f8fafc;
       border-bottom: 1px solid var(--border-color);
       align-items: center;
       flex-shrink: 0;
@@ -148,22 +160,25 @@
     }
 
     .btn {
-      background-color: var(--card-bg);
+      background-color: #ffffff;
       color: var(--text-main);
       border: 1px solid var(--border-color);
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
       font-size: 0.85rem;
       transition: all 0.2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
-    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: #f8fafc; }
     .btn-primary { background-color: #0284c7; color: #fff; border: none; }
     .btn-primary:hover { background-color: #0369a1; color: #fff; }
-    .btn-success { background-color: #10b981; color: #fff; border: none; }
-    .btn-success:hover { background-color: #059669; }
+    .btn-success { background-color: #059669; color: #fff; border: none; }
+    .btn-success:hover { background-color: #047857; color: #fff; }
+    .btn-purple { background-color: #7c3aed; color: #fff; border: none; }
+    .btn-purple:hover { background-color: #6d28d9; color: #fff; }
 
     .table-scroll-container {
       flex: 1;
@@ -179,8 +194,8 @@
     }
 
     th {
-      background-color: #0f172a;
-      color: #94a3b8;
+      background-color: var(--table-header-bg);
+      color: #334155;
       font-weight: 700;
       padding: 12px 16px;
       border-bottom: 2px solid var(--border-color);
@@ -197,10 +212,15 @@
       white-space: nowrap;
     }
 
+    tbody tr:hover {
+      background-color: var(--table-hover);
+    }
+
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.7);
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
       display: none;
       justify-content: center;
       align-items: center;
@@ -210,13 +230,14 @@
     .modal-large {
       width: 1000px;
       max-width: 95vw;
-      background: var(--card-bg);
+      background: #ffffff;
       border: 1px solid var(--border-color);
-      padding: 20px;
+      padding: 24px;
       border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
 
     .chart-modal-header {
@@ -234,7 +255,7 @@
     }
 
     .chart-tab-btn {
-      background: #0f172a;
+      background: #f1f5f9;
       color: var(--text-muted);
       border: 1px solid var(--border-color);
       padding: 8px 14px;
@@ -243,18 +264,24 @@
       font-size: 0.82rem;
       font-weight: 600;
       white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .chart-tab-btn:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
     }
 
     .chart-tab-btn.active {
       background: var(--accent);
-      color: #000;
+      color: #fff;
       border-color: var(--accent);
     }
 
     .chart-page {
       display: none;
       height: 450px;
-      background: #0f172a;
+      background: #f8fafc;
       padding: 16px;
       border-radius: 8px;
       border: 1px solid var(--border-color);
@@ -268,13 +295,13 @@
 </head>
 <body>
 
-  <div class="app-container">
+  <div class="app-container" id="app-main-container">
     <header>
       <div class="brand-title">
         <div>
-          <span class="badge-pro">OUTSOURCING TRACKER (CLOUD)</span>
+          <span class="badge-pro">ENTERPRISE EDITION (PRO)</span>
           <h1>
-            委外廠商製作進度追蹤
+            委外廠商製作進度追蹤表
             <span class="last-update-tag" id="last-updated-time">最後更新：載入中...</span>
           </h1>
         </div>
@@ -291,15 +318,16 @@
 
     <div class="tab-content">
       <div class="toolbar">
-        <button class="btn btn-primary" style="background-color: #8b5cf6;" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
+        <button class="btn btn-purple" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
+        <button id="export-roadmap-btn" class="btn btn-primary" style="display: none;" onclick="exportCapacityRoadmapPNG()">🖼️ 匯出 Capacity Roadmap PNG</button>
         <button class="btn btn-success" onclick="exportToExcel()">📥 匯出 Excel</button>
         <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
         <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
         
-        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto;">☁️ 雲端載入中...</span>
+        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto; font-weight: 600;">☁️ 雲端載入中...</span>
       </div>
 
-      <div class="table-scroll-container">
+      <div class="table-scroll-container" id="table-scroll-area">
         <table>
           <thead id="table-head"></thead>
           <tbody id="table-body"></tbody>
@@ -308,32 +336,11 @@
     </div>
   </div>
 
-  <!-- Firebase 登入 Modal -->
-  <div id="login-modal" class="modal-backdrop">
-    <div class="modal-large" style="width: 400px;">
-      <h3 style="margin: 0; color: var(--accent); font-size: 1.2rem;">🔐 管理員登入 (Firebase Auth)</h3>
-      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
-        <label style="font-size: 0.9rem; color: var(--text-muted);">
-          電子郵件 (Email)：
-          <input type="email" id="login-email" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="admin@example.com" />
-        </label>
-        <label style="font-size: 0.9rem; color: var(--text-muted);">
-          密碼 (Password)：
-          <input type="password" id="login-password" class="btn" style="width: 100%; margin-top: 4px; text-align: left; background: #0f172a; cursor: text;" placeholder="請輸入密碼" />
-        </label>
-      </div>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
-        <button class="btn" onclick="closeLoginModal()">取消</button>
-        <button class="btn btn-primary" onclick="submitLogin()">登入</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 分析圖表 Modal -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal-large">
       <div class="chart-modal-header">
-        <h3 style="margin: 0; color: var(--accent); font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
+        <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
         <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼️ 一鍵匯出所有圖表 (6合1)</button>
       </div>
       
@@ -389,7 +396,6 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     if (typeof ChartDataLabels !== 'undefined') {
       Chart.register(ChartDataLabels);
@@ -406,63 +412,28 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
 
-    // 權限管理狀態
     let isAdmin = false;
 
-    // 監聽 Firebase 登入狀態
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        isAdmin = true;
-        document.getElementById('user-status-text').innerText = `權限：管理員 (${user.email})`;
-        document.getElementById('user-status-text').style.color = "#34d399";
-        document.getElementById('auth-btn').innerText = "登出管理員";
+    window.toggleAuth = function() {
+      if (!isAdmin) {
+        const pwd = prompt("請輸入管理員密碼：");
+        if (pwd === "admin888") {
+          isAdmin = true;
+          document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
+          document.getElementById('user-status-text').style.color = "#059669";
+          document.getElementById('auth-btn').innerText = "登出管理員";
+          alert("登入成功！已開啟管理員權限。");
+        } else if (pwd !== null) {
+          alert("密碼錯誤！");
+        }
       } else {
         isAdmin = false;
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
         document.getElementById('user-status-text').style.color = "var(--text-muted)";
         document.getElementById('auth-btn').innerText = "管理員登入";
-      }
-    });
-
-    window.toggleAuth = async function() {
-      if (!isAdmin) {
-        document.getElementById('login-email').value = '';
-        document.getElementById('login-password').value = '';
-        document.getElementById('login-modal').style.display = 'flex';
-      } else {
-        try {
-          await signOut(auth);
-          alert("已成功登出。");
-        } catch (error) {
-          console.error(error);
-          alert("登出發生錯誤：" + error.message);
-        }
-      }
-    };
-
-    window.closeLoginModal = function() {
-      document.getElementById('login-modal').style.display = 'none';
-    };
-
-    window.submitLogin = async function() {
-      const email = document.getElementById('login-email').value.trim();
-      const pwd = document.getElementById('login-password').value.trim();
-
-      if (!email || !pwd) {
-        alert("請輸入電子郵件與密碼！");
-        return;
-      }
-
-      try {
-        await signInWithEmailAndPassword(auth, email, pwd);
-        closeLoginModal();
-        alert("登入成功！已開啟管理員權限。");
-      } catch (error) {
-        console.error(error);
-        alert("登入失敗，請檢查 Email 或密碼是否正確。\n錯誤訊息：" + error.message);
+        alert("已成功登出。");
       }
     };
 
@@ -478,8 +449,11 @@
       { key: "status", label: "發單/追蹤狀況" }
     ];
 
-    let workbook = [{ id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: [] }];
-    let activeSheetId = "sheet_1";
+    let workbook = [
+      { id: "sheet_roadmap", name: "Capacity Roadmap圖鑑表", columns: defaultColumns, data: [] },
+      { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: [] }
+    ];
+    let activeSheetId = "sheet_roadmap";
     let chartInstances = {};
 
     async function saveData() {
@@ -518,6 +492,7 @@
       }
       renderSheets();
       renderTable();
+      checkRoadmapBtnVisibility();
     }
 
     function getActiveSheet() {
@@ -566,6 +541,33 @@
       reader.readAsArrayBuffer(file);
     };
 
+    // 第一個工作表專屬：一鍵匯出 Capacity Roadmap PNG
+    window.exportCapacityRoadmapPNG = function() {
+      const targetArea = document.querySelector('.tab-content');
+      if (!targetArea) return;
+
+      // 暫時隱藏不需要出現在截圖裡的工具列按鈕，保持乾淨
+      const toolbar = document.querySelector('.toolbar');
+      const originalToolbarDisplay = toolbar.style.display;
+      
+      html2canvas(targetArea, {
+        scale: 2, // 高解析度
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      }).then(canvas => {
+        const imageURL = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `Capacity_Roadmap圖鑑表_${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = imageURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }).catch(err => {
+        console.error(err);
+        alert('匯出 Capacity Roadmap 圖片失敗：' + err.message);
+      });
+    };
+
     window.openAnalysisModal = function() {
       document.getElementById('analysis-modal').style.display = 'flex';
       renderChart();
@@ -586,7 +588,7 @@
     const datalabelsStandardConfig = {
       anchor: 'end',
       align: 'top',
-      color: '#ffffff',
+      color: '#1e293b',
       font: { weight: 'bold', size: 12 },
       formatter: (val) => val > 0 ? val.toLocaleString() : ''
     };
@@ -610,7 +612,7 @@
         anchor: 'end',
         align: (ctx) => (ctx.dataIndex === totalCount - 1 ? 'left' : 'top'),
         offset: 6,
-        color: '#ffffff',
+        color: '#1e293b',
         backgroundColor: null,
         borderWidth: 0,
         font: { weight: 'bold', size: 12 },
@@ -622,10 +624,10 @@
     }
 
     const commonScalesConfig = {
-      x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+      x: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
       y: { 
-        ticks: { color: '#94a3b8' }, 
-        grid: { color: '#334155' }, 
+        ticks: { color: '#64748b' }, 
+        grid: { color: '#e2e8f0' }, 
         beginAtZero: true,
         grace: '18%'
       }
@@ -669,12 +671,11 @@
 
       Object.keys(chartInstances).forEach(key => chartInstances[key]?.destroy());
 
-      // 1. FAI合格件數
       chartInstances['vendorCount'] = new Chart(document.getElementById('vendorCountChart'), {
         type: 'bar',
         data: {
           labels: Object.keys(vendorStats),
-          datasets: [{ label: '已派工件數', data: Object.values(vendorStats), backgroundColor: '#38bdf8' }]
+          datasets: [{ label: '已派工件數', data: Object.values(vendorStats), backgroundColor: '#0284c7' }]
         },
         options: {
           responsive: true,
@@ -684,12 +685,11 @@
         }
       });
 
-      // 2. FAI合格已交貨PCS
       chartInstances['vendorPcs'] = new Chart(document.getElementById('vendorPcsChart'), {
         type: 'bar',
         data: {
           labels: Object.keys(vendorPcsStats),
-          datasets: [{ label: '已交貨 (PCS)', data: Object.values(vendorPcsStats), backgroundColor: '#34d399' }]
+          datasets: [{ label: '已交貨 (PCS)', data: Object.values(vendorPcsStats), backgroundColor: '#059669' }]
         },
         options: {
           responsive: true,
@@ -699,12 +699,11 @@
         }
       });
 
-      // 3. FAI待驗證件數
       chartInstances['faiPending'] = new Chart(document.getElementById('faiPendingChart'), {
         type: 'bar',
         data: {
           labels: Object.keys(pendingStats),
-          datasets: [{ label: '待驗證件數', data: Object.values(pendingStats), backgroundColor: '#fbbf24' }]
+          datasets: [{ label: '待驗證件數', data: Object.values(pendingStats), backgroundColor: '#d97706' }]
         },
         options: {
           responsive: true,
@@ -714,7 +713,6 @@
         }
       });
 
-      // 4 & 5. 逐日累積計算 (FAI已派工)
       const sortedDates = Object.keys(dateDailyMap).sort();
       const cumulativeCountData = [];
       const cumulativePcsData = [];
@@ -730,7 +728,6 @@
 
       const cumulativeDataLabels = createSampledDataLabelsConfig(sortedDates.length);
 
-      // 4. FAI已派工逐日累積件數
       chartInstances['dailyCount'] = new Chart(document.getElementById('dailyCountChart'), {
         type: 'line',
         data: {
@@ -738,9 +735,9 @@
           datasets: [{
             label: 'FAI已派工逐日累積件數',
             data: cumulativeCountData,
-            borderColor: '#60a5fa',
-            backgroundColor: 'rgba(96, 165, 250, 0.2)',
-            pointBackgroundColor: '#60a5fa',
+            borderColor: '#0284c7',
+            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+            pointBackgroundColor: '#0284c7',
             pointRadius: 4,
             fill: true,
             tension: 0.3
@@ -755,7 +752,6 @@
         }
       });
 
-      // 5. FAI已派工逐日累積PCS數
       chartInstances['dailyPcs'] = new Chart(document.getElementById('dailyPcsChart'), {
         type: 'line',
         data: {
@@ -763,9 +759,9 @@
           datasets: [{
             label: 'FAI已派工逐日累積PCS數',
             data: cumulativePcsData,
-            borderColor: '#a78bfa',
-            backgroundColor: 'rgba(167, 139, 250, 0.2)',
-            pointBackgroundColor: '#a78bfa',
+            borderColor: '#7c3aed',
+            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+            pointBackgroundColor: '#7c3aed',
             pointRadius: 4,
             fill: true,
             tension: 0.3
@@ -780,7 +776,6 @@
         }
       });
 
-      // 6. FAI待驗證逐日累積件數
       const sortedPendingDates = Object.keys(pendingDailyMap).sort();
       const cumulativePendingCountData = [];
       let runningPendingCount = 0;
@@ -799,9 +794,9 @@
           datasets: [{
             label: 'FAI待驗證逐日累積件數',
             data: cumulativePendingCountData,
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.2)',
-            pointBackgroundColor: '#f59e0b',
+            borderColor: '#d97706',
+            backgroundColor: 'rgba(217, 119, 6, 0.1)',
+            pointBackgroundColor: '#d97706',
             pointRadius: 4,
             fill: true,
             tension: 0.3
@@ -828,9 +823,19 @@
           activeSheetId = sheet.id;
           renderSheets();
           renderTable();
+          checkRoadmapBtnVisibility();
         };
         container.appendChild(tab);
       });
+    }
+
+    function checkRoadmapBtnVisibility() {
+      const btn = document.getElementById('export-roadmap-btn');
+      if (activeSheetId === 'sheet_roadmap') {
+        btn.style.display = 'inline-block';
+      } else {
+        btn.style.display = 'none';
+      }
     }
 
     function renderTable() {
@@ -855,7 +860,6 @@
       });
     }
 
-    // 單張 PNG 匯出
     window.exportChartImage = function(canvasId, fileName) {
       const srcCanvas = document.getElementById(canvasId);
       if (!srcCanvas) return;
@@ -872,7 +876,7 @@
       exportCanvas.height = exportHeight;
       const ctx = exportCanvas.getContext('2d');
 
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, exportWidth, exportHeight);
 
       const cardX = padding;
@@ -880,13 +884,13 @@
       const cardWidth = exportWidth - padding * 2;
       const cardHeight = exportHeight - padding * 2;
 
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#f8fafc';
       ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
 
-      ctx.fillStyle = '#f8fafc';
+      ctx.fillStyle = '#1e293b';
       ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
@@ -908,7 +912,6 @@
       document.body.removeChild(link);
     };
 
-    // 一鍵 6 合 1 匯出高解析度圖表 PNG
     window.exportAllChartsCombined = function() {
       try {
         const pages = document.querySelectorAll('.chart-page');
@@ -948,10 +951,10 @@
 
         const ctx = combinedCanvas.getContext('2d');
 
-        ctx.fillStyle = '#0f172a';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
 
-        ctx.fillStyle = '#38bdf8';
+        ctx.fillStyle = '#0284c7';
         ctx.font = 'bold 28px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('衛星工廠進度追蹤總覽分析報告', combinedCanvas.width / 2, 45);
@@ -966,13 +969,13 @@
           const x = padding + col * (singleWidth + padding);
           const y = headerHeight + padding + row * (singleHeight + padding);
 
-          ctx.fillStyle = '#1e293b';
+          ctx.fillStyle = '#f8fafc';
           ctx.fillRect(x, y, singleWidth, singleHeight);
-          ctx.strokeStyle = '#334155';
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1.5;
           ctx.strokeRect(x, y, singleWidth, singleHeight);
 
-          ctx.fillStyle = '#f8fafc';
+          ctx.fillStyle = '#1e293b';
           ctx.font = 'bold 16px sans-serif';
           ctx.textAlign = 'left';
           ctx.fillText(item.title, x + 16, y + 30);
@@ -982,7 +985,7 @@
           tempCanvas.height = srcCanvas.height;
           const tempCtx = tempCanvas.getContext('2d');
 
-          tempCtx.fillStyle = '#1e293b';
+          tempCtx.fillStyle = '#f8fafc';
           tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
           tempCtx.drawImage(srcCanvas, 0, 0);
 
