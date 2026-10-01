@@ -323,7 +323,7 @@
       </div>
       <div class="user-control">
         <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">權限：訪客 (唯讀)</span>
-        <button id="auth-btn" class="btn btn-primary" onclick="toggleAuth()">管理員登入</button>
+        <button id="auth-btn" class="btn btn-primary" onclick="openLoginModal()">管理員登入</button>
       </div>
     </header>
 
@@ -334,7 +334,7 @@
     <div class="tab-content">
       <div class="toolbar">
         <button class="btn btn-purple" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
-        <button id="export-roadmap-btn" class="btn btn-primary" style="display: none;" onclick="exportCapacityRoadmapPNG()">🖼️️ 匯出 Capacity Roadmap PNG</button>
+        <button id="export-roadmap-btn" class="btn btn-primary" style="display: none;" onclick="exportCapacityRoadmapPNG()">🖼 匯出 Capacity Roadmap PNG</button>
         <button class="btn btn-success" onclick="exportToExcel()">📥 匯出 Excel</button>
         <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
         <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
@@ -357,12 +357,33 @@
     </div>
   </div>
 
+  <!-- Firebase 登入 Modal -->
+  <div id="login-modal" class="modal-backdrop">
+    <div class="modal-large" style="width: 400px; gap: 12px;">
+      <div class="chart-modal-header">
+        <h3 style="margin: 0; color: #0f172a; font-size: 1.2rem;">🔐 管理員登入 (Firebase 帳密)</h3>
+        <button class="btn" onclick="closeLoginModal()">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">電子郵件 (Email)</label>
+        <input type="email" id="firebase-email" class="table-input" placeholder="请输入管理員 Email">
+        
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-top: 4px;">密碼 (Password)</label>
+        <input type="password" id="firebase-password" class="table-input" placeholder="请输入密碼">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+        <button class="btn" onclick="closeLoginModal()">取消</button>
+        <button class="btn btn-primary" onclick="handleFirebaseLogin()">登入</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 分析圖表 Modal -->
   <div id="analysis-modal" class="modal-backdrop">
     <div class="modal-large">
       <div class="chart-modal-header">
         <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
-        <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼️ 一鍵匯出所有圖表 (6合1)</button>
+        <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼️️ 一鍵匯出所有圖表 (6合1)</button>
       </div>
       
       <div class="chart-tabs-bar">
@@ -374,37 +395,31 @@
         <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending-daily', this)">6. FAI待驗證逐日累積件數</button>
       </div>
 
-      <!-- 頁面 1: FAI合格已派工 - 件數 -->
       <div id="page-vendor-count" class="chart-page active">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorCountChart"></canvas></div>
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 2: FAI合格已派工 - 已交貨 PCS -->
       <div id="page-vendor-pcs" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorPcsChart"></canvas></div>
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorPcsChart', '2. FAI合格已派工-已交貨PCS')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 3: FAI待驗證 - 件數 -->
       <div id="page-fai-pending" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="faiPendingChart"></canvas></div>
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingChart', '3. FAI待驗證-件數')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 4: FAI已派工逐日累積件數 -->
       <div id="page-daily-count" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="dailyCountChart"></canvas></div>
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyCountChart', '4. FAI已派工逐日累積件數')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 5: FAI已派工逐日累積PCS數 -->
       <div id="page-daily-pcs" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="dailyPcsChart"></canvas></div>
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('dailyPcsChart', '5. FAI已派工逐日累積PCS數')">🖼️ 匯出 PNG</button>
       </div>
 
-      <!-- 頁面 6: FAI待驗證逐日累積件數 -->
       <div id="page-fai-pending-daily" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="faiPendingDailyChart"></canvas></div>
         <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('faiPendingDailyChart', '6. FAI待驗證逐日累積件數')">🖼️ 匯出 PNG</button>
@@ -425,9 +440,7 @@
         <input type="text" id="new-column-name" class="table-input" placeholder="輸入新欄位名稱 (例如：備註)">
         <button class="btn btn-primary" onclick="addNewColumn()">新增欄位</button>
       </div>
-      <div id="column-list-container" style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-        <!-- 動態產生欄位清單與搬移/刪除按鈕 -->
-      </div>
+      <div id="column-list-container" style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
       <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
         <button class="btn btn-primary" onclick="closeColumnModal()">完成並儲存</button>
       </div>
@@ -437,6 +450,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     if (typeof ChartDataLabels !== 'undefined') {
       Chart.register(ChartDataLabels);
@@ -453,32 +467,64 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
 
     let isAdmin = false;
 
-    window.toggleAuth = function() {
-      if (!isAdmin) {
-        const pwd = prompt("請輸入管理員密碼：");
-        if (pwd === "admin888") {
-          isAdmin = true;
-          document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
-          document.getElementById('user-status-text').style.color = "#059669";
-          document.getElementById('auth-btn').innerText = "登出管理員";
-          document.getElementById('admin-action-toolbar').style.display = 'inline-flex';
-          alert("登入成功！已開啟管理員權限。");
-        } else if (pwd !== null) {
-          alert("密碼錯誤！");
-        }
+    // 監聽 Firebase 登入狀態
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        isAdmin = true;
+        document.getElementById('user-status-text').innerText = `權限：管理員 (${user.email})`;
+        document.getElementById('user-status-text').style.color = "#059669";
+        document.getElementById('auth-btn').innerText = "登出管理員";
+        document.getElementById('admin-action-toolbar').style.display = 'inline-flex';
       } else {
         isAdmin = false;
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
         document.getElementById('user-status-text').style.color = "var(--text-muted)";
         document.getElementById('auth-btn').innerText = "管理員登入";
         document.getElementById('admin-action-toolbar').style.display = 'none';
-        alert("已成功登出。");
       }
       renderTable();
+    });
+
+    window.openLoginModal = function() {
+      if (!isAdmin) {
+        document.getElementById('login-modal').style.display = 'flex';
+      } else {
+        signOut(auth).then(() => {
+          alert("已成功登出。");
+        }).catch((error) => {
+          console.error(error);
+        });
+      }
+    };
+
+    window.closeLoginModal = function() {
+      document.getElementById('login-modal').style.display = 'none';
+    };
+
+    window.handleFirebaseLogin = function() {
+      const email = document.getElementById('firebase-email').value.trim();
+      const password = document.getElementById('firebase-password').value;
+
+      if (!email || !password) {
+        alert("請輸入電子郵件與密碼！");
+        return;
+      }
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          closeLoginModal();
+          document.getElementById('firebase-email').value = '';
+          document.getElementById('firebase-password').value = '';
+          alert("登入成功！已開啟管理員權限。");
+        })
+        .catch((error) => {
+          alert(`登入失敗：${error.message}`);
+        });
     };
 
     const defaultColumns = [
@@ -543,7 +589,6 @@
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
     }
 
-    // --- 資料列增刪移與編輯功能 ---
     window.addRow = function() {
       if (!isAdmin) return;
       const sheet = getActiveSheet();
@@ -584,7 +629,6 @@
       }
     };
 
-    // --- 欄位管理功能（新增、刪除、搬移） ---
     window.addColumnModal = function() {
       if (!isAdmin) return;
       renderColumnList();
@@ -923,7 +967,7 @@
           bodyHtml += `<td style="text-align: center; white-space: nowrap;">`;
           if (rowIndex > 0) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, -1)" title="上移">⬆️</button>`;
           if (rowIndex < sheet.data.length - 1) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, 1)" title="下移">⬇️</button>`;
-          bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑️</button>`;
+          bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑️️</button>`;
           bodyHtml += `</td>`;
         }
 
