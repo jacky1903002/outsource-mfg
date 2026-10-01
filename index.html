@@ -345,7 +345,7 @@
           <button class="btn btn-primary" onclick="addColumnModal()">⚙️ 欄位管理 (新增/搬移/刪除)</button>
         </div>
 
-        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto; font-weight: 600;">☁️ 雲端載入中...</span>
+        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto; font-weight: 600;">☁️️ 雲端載入中...</span>
       </div>
 
       <div class="table-scroll-container" id="table-scroll-area">
@@ -366,10 +366,10 @@
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">電子郵件 (Email)</label>
-        <input type="email" id="firebase-email" class="table-input" placeholder="请输入管理員 Email">
+        <input type="email" id="firebase-email" class="table-input" placeholder="請輸入管理員 Email">
         
         <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-top: 4px;">密碼 (Password)</label>
-        <input type="password" id="firebase-password" class="table-input" placeholder="请输入密碼">
+        <input type="password" id="firebase-password" class="table-input" placeholder="請輸入密碼">
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
         <button class="btn" onclick="closeLoginModal()">取消</button>
@@ -383,7 +383,7 @@
     <div class="modal-large">
       <div class="chart-modal-header">
         <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
-        <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼️️ 一鍵匯出所有圖表 (6合1)</button>
+        <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼 一鍵匯出所有圖表 (6合1)</button>
       </div>
       
       <div class="chart-tabs-bar">
@@ -397,7 +397,7 @@
 
       <div id="page-vendor-count" class="chart-page active">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorCountChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼️️ 匯出 PNG</button>
       </div>
 
       <div id="page-vendor-pcs" class="chart-page">
@@ -433,7 +433,7 @@
   <div id="column-modal" class="modal-backdrop">
     <div class="modal-large" style="width: 600px;">
       <div class="chart-modal-header">
-        <h3 style="margin: 0; color: #0f172a; font-size: 1.2rem;">⚙️ 表格欄位管理（排序、刪除、新增）</h3>
+        <h3 style="margin: 0; color: #0f172a; font-size: 1.2rem;">⚙️ 表格欄位管理（左右搬移、刪除、新增）</h3>
         <button class="btn" onclick="closeColumnModal()">✕</button>
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 12px;">
@@ -651,15 +651,17 @@
         
         let html = `<span style="font-weight: 600;">${col.label} <span style="color: var(--text-muted); font-size: 0.75rem;">(Key: ${col.key})</span></span>`;
         html += `<div style="display: flex; gap: 4px;">`;
+        
+        // 每一欄都可以左右搬移（左移 ⬅️ / 右移 ➡️）
         if (index > 0) {
-          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, -1)">⬆️</button>`;
+          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, -1)" title="向左移動">⬅️ 左移</button>`;
         }
         if (index < sheet.columns.length - 1) {
-          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)">⬇️</button>`;
+          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)" title="向右移動">右移 ➡️</button>`;
         }
-        if (sheet.columns.length > 1) {
-          html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})">🗑️ 刪除</button>`;
-        }
+        
+        // 每一欄都可以刪除
+        html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})" title="刪除欄位">🗑️ 刪除</button>`;
         html += `</div>`;
         item.innerHTML = html;
         container.appendChild(item);
@@ -683,10 +685,6 @@
 
     window.deleteColumn = function(index) {
       const sheet = getActiveSheet();
-      if (sheet.columns.length <= 1) {
-        alert("至少需要保留一個欄位！");
-        return;
-      }
       if (confirm(`確定要刪除欄位「${sheet.columns[index].label}」嗎？該欄位的資料將會被移除。`)) {
         const colKey = sheet.columns[index].key;
         sheet.columns.splice(index, 1);
@@ -967,7 +965,7 @@
           bodyHtml += `<td style="text-align: center; white-space: nowrap;">`;
           if (rowIndex > 0) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, -1)" title="上移">⬆️</button>`;
           if (rowIndex < sheet.data.length - 1) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, 1)" title="下移">⬇️</button>`;
-          bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑️️</button>`;
+          bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑</button>`;
           bodyHtml += `</td>`;
         }
 
