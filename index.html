@@ -98,14 +98,14 @@
     .sheet-bar {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
       background: #e2e8f0;
       padding: 6px 12px;
       border-radius: 8px 8px 0 0;
       border: 1px solid var(--border-color);
       border-bottom: none;
-      overflow-x: auto;
       flex-shrink: 0;
+      overflow-x: auto;
     }
 
     .sheet-tab {
@@ -328,7 +328,11 @@
     </header>
 
     <div class="sheet-bar">
-      <div id="sheets-container" style="display: flex; gap: 6px;"></div>
+      <div id="sheets-container" style="display: flex; gap: 6px; align-items: center;"></div>
+      <div id="admin-sheet-toolbar" style="display: none; gap: 6px; align-items: center; margin-left: auto;">
+        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="renameActiveSheet()">✏️ 修改工作表名稱</button>
+        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="addNewSheet()">➕ 新增工作表</button>
+      </div>
     </div>
 
     <div class="tab-content">
@@ -345,7 +349,7 @@
           <button class="btn btn-primary" onclick="addColumnModal()">⚙️ 欄位管理 (新增/搬移/刪除)</button>
         </div>
 
-        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto; font-weight: 600;">☁️️ 雲端載入中...</span>
+        <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto; font-weight: 600;">☁ 雲端載入中...</span>
       </div>
 
       <div class="table-scroll-container" id="table-scroll-area">
@@ -397,7 +401,7 @@
 
       <div id="page-vendor-count" class="chart-page active">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorCountChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼️️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼 匯出 PNG</button>
       </div>
 
       <div id="page-vendor-pcs" class="chart-page">
@@ -480,12 +484,14 @@
         document.getElementById('user-status-text').style.color = "#059669";
         document.getElementById('auth-btn').innerText = "登出管理員";
         document.getElementById('admin-action-toolbar').style.display = 'inline-flex';
+        document.getElementById('admin-sheet-toolbar').style.display = 'flex';
       } else {
         isAdmin = false;
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
         document.getElementById('user-status-text').style.color = "var(--text-muted)";
         document.getElementById('auth-btn').innerText = "管理員登入";
         document.getElementById('admin-action-toolbar').style.display = 'none';
+        document.getElementById('admin-sheet-toolbar').style.display = 'none';
       }
       renderTable();
     });
@@ -589,6 +595,37 @@
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
     }
 
+    // 工作表相關操作
+    window.renameActiveSheet = function() {
+      if (!isAdmin) return;
+      const sheet = getActiveSheet();
+      const newName = prompt("請輸入新的工作表名稱：", sheet.name);
+      if (newName && newName.trim() !== "") {
+        sheet.name = newName.trim();
+        renderSheets();
+        saveData();
+      }
+    };
+
+    window.addNewSheet = function() {
+      if (!isAdmin) return;
+      const sheetName = prompt("請輸入新工作表名稱：", "新工作表");
+      if (!sheetName || sheetName.trim() === "") return;
+
+      const newId = "sheet_" + Date.now();
+      workbook.push({
+        id: newId,
+        name: sheetName.trim(),
+        columns: JSON.parse(JSON.stringify(defaultColumns)),
+        data: []
+      });
+      activeSheetId = newId;
+      renderSheets();
+      renderTable();
+      checkRoadmapBtnVisibility();
+      saveData();
+    };
+
     window.addRow = function() {
       if (!isAdmin) return;
       const sheet = getActiveSheet();
@@ -652,16 +689,14 @@
         let html = `<span style="font-weight: 600;">${col.label} <span style="color: var(--text-muted); font-size: 0.75rem;">(Key: ${col.key})</span></span>`;
         html += `<div style="display: flex; gap: 4px;">`;
         
-        // 每一欄都可以左右搬移（左移 ⬅️ / 右移 ➡️）
         if (index > 0) {
           html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, -1)" title="向左移動">⬅️ 左移</button>`;
         }
         if (index < sheet.columns.length - 1) {
-          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)" title="向右移動">右移 ➡️</button>`;
+          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)" title="向右移動">右移 ➡️️</button>`;
         }
         
-        // 每一欄都可以刪除
-        html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})" title="刪除欄位">🗑️ 刪除</button>`;
+        html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})" title="刪除欄位">🗑️️ 刪除</button>`;
         html += `</div>`;
         item.innerHTML = html;
         container.appendChild(item);
@@ -921,6 +956,16 @@
           renderSheets();
           renderTable();
           checkRoadmapBtnVisibility();
+        };
+        // 支援管理員雙擊直接修改名稱
+        tab.ondblclick = () => {
+          if (!isAdmin) return;
+          const newName = prompt("請輸入新的工作表名稱：", sheet.name);
+          if (newName && newName.trim() !== "") {
+            sheet.name = newName.trim();
+            renderSheets();
+            saveData();
+          }
         };
         container.appendChild(tab);
       });
