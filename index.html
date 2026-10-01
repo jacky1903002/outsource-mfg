@@ -13,7 +13,6 @@
   
   <style>
     :root {
-      /* 專業商業微淺色系：完美適配簡報PPT，視覺清爽高雅 */
       --bg-color: #f1f5f9;
       --card-bg: #ffffff;
       --border-color: #cbd5e1;
@@ -179,6 +178,8 @@
     .btn-success:hover { background-color: #047857; color: #fff; }
     .btn-purple { background-color: #7c3aed; color: #fff; border: none; }
     .btn-purple:hover { background-color: #6d28d9; color: #fff; }
+    .btn-danger { background-color: var(--danger); color: #fff; border: none; }
+    .btn-danger:hover { background-color: #b91c1c; color: #fff; }
 
     .table-scroll-container {
       flex: 1;
@@ -214,6 +215,20 @@
 
     tbody tr:hover {
       background-color: var(--table-hover);
+    }
+
+    .table-input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 0.88rem;
+      background: #fff;
+    }
+    .table-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.1);
     }
 
     .modal-backdrop {
@@ -319,11 +334,17 @@
     <div class="tab-content">
       <div class="toolbar">
         <button class="btn btn-purple" onclick="openAnalysisModal()">📊 衛星工廠進度追蹤</button>
-        <button id="export-roadmap-btn" class="btn btn-primary" style="display: none;" onclick="exportCapacityRoadmapPNG()">🖼️ 匯出 Capacity Roadmap PNG</button>
+        <button id="export-roadmap-btn" class="btn btn-primary" style="display: none;" onclick="exportCapacityRoadmapPNG()">🖼️️ 匯出 Capacity Roadmap PNG</button>
         <button class="btn btn-success" onclick="exportToExcel()">📥 匯出 Excel</button>
         <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
         <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
         
+        <!-- 管理員專用編輯按鈕 (預設隱藏) -->
+        <div id="admin-action-toolbar" style="display: none; display: inline-flex; gap: 8px; margin-left: 12px; border-left: 1px solid var(--border-color); padding-left: 12px;">
+          <button class="btn btn-primary" onclick="addRow()">➕ 新增資料列</button>
+          <button class="btn btn-primary" onclick="addColumnModal()">⚙️ 欄位管理 (新增/搬移/刪除)</button>
+        </div>
+
         <span id="sync-status" style="font-size: 0.8rem; color: var(--accent); margin-left: auto; font-weight: 600;">☁️ 雲端載入中...</span>
       </div>
 
@@ -393,6 +414,26 @@
     </div>
   </div>
 
+  <!-- 欄位管理 Modal -->
+  <div id="column-modal" class="modal-backdrop">
+    <div class="modal-large" style="width: 600px;">
+      <div class="chart-modal-header">
+        <h3 style="margin: 0; color: #0f172a; font-size: 1.2rem;">⚙️ 表格欄位管理（排序、刪除、新增）</h3>
+        <button class="btn" onclick="closeColumnModal()">✕</button>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input type="text" id="new-column-name" class="table-input" placeholder="輸入新欄位名稱 (例如：備註)">
+        <button class="btn btn-primary" onclick="addNewColumn()">新增欄位</button>
+      </div>
+      <div id="column-list-container" style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        <!-- 動態產生欄位清單與搬移/刪除按鈕 -->
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+        <button class="btn btn-primary" onclick="closeColumnModal()">完成並儲存</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -424,6 +465,7 @@
           document.getElementById('user-status-text').innerText = "權限：管理員 (可編輯)";
           document.getElementById('user-status-text').style.color = "#059669";
           document.getElementById('auth-btn').innerText = "登出管理員";
+          document.getElementById('admin-action-toolbar').style.display = 'inline-flex';
           alert("登入成功！已開啟管理員權限。");
         } else if (pwd !== null) {
           alert("密碼錯誤！");
@@ -433,8 +475,10 @@
         document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
         document.getElementById('user-status-text').style.color = "var(--text-muted)";
         document.getElementById('auth-btn').innerText = "管理員登入";
+        document.getElementById('admin-action-toolbar').style.display = 'none';
         alert("已成功登出。");
       }
+      renderTable();
     };
 
     const defaultColumns = [
@@ -450,8 +494,8 @@
     ];
 
     let workbook = [
-      { id: "sheet_roadmap", name: "Capacity Roadmap圖鑑表", columns: defaultColumns, data: [] },
-      { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: [] }
+      { id: "sheet_roadmap", name: "Capacity Roadmap圖鑑表", columns: JSON.parse(JSON.stringify(defaultColumns)), data: [] },
+      { id: "sheet_1", name: "工程及製造追蹤項目", columns: JSON.parse(JSON.stringify(defaultColumns)), data: [] }
     ];
     let activeSheetId = "sheet_roadmap";
     let chartInstances = {};
@@ -499,6 +543,126 @@
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
     }
 
+    // --- 資料列增刪移與編輯功能 ---
+    window.addRow = function() {
+      if (!isAdmin) return;
+      const sheet = getActiveSheet();
+      let newRow = {};
+      sheet.columns.forEach(col => { newRow[col.key] = ""; });
+      sheet.data.push(newRow);
+      renderTable();
+      saveData();
+    };
+
+    window.deleteRow = function(index) {
+      if (!isAdmin) return;
+      if (confirm("確定要刪除這一列嗎？")) {
+        const sheet = getActiveSheet();
+        sheet.data.splice(index, 1);
+        renderTable();
+        saveData();
+      }
+    };
+
+    window.moveRow = function(index, direction) {
+      if (!isAdmin) return;
+      const sheet = getActiveSheet();
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= sheet.data.length) return;
+      const temp = sheet.data[index];
+      sheet.data[index] = sheet.data[targetIndex];
+      sheet.data[targetIndex] = temp;
+      renderTable();
+      saveData();
+    };
+
+    window.updateCell = function(rowIndex, key, value) {
+      const sheet = getActiveSheet();
+      if (sheet.data[rowIndex]) {
+        sheet.data[rowIndex][key] = value;
+        saveData();
+      }
+    };
+
+    // --- 欄位管理功能（新增、刪除、搬移） ---
+    window.addColumnModal = function() {
+      if (!isAdmin) return;
+      renderColumnList();
+      document.getElementById('column-modal').style.display = 'flex';
+    };
+
+    window.closeColumnModal = function() {
+      document.getElementById('column-modal').style.display = 'none';
+      renderTable();
+    };
+
+    function renderColumnList() {
+      const sheet = getActiveSheet();
+      const container = document.getElementById('column-list-container');
+      container.innerHTML = '';
+      
+      sheet.columns.forEach((col, index) => {
+        const item = document.createElement('div');
+        item.style.cssText = "display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px;";
+        
+        let html = `<span style="font-weight: 600;">${col.label} <span style="color: var(--text-muted); font-size: 0.75rem;">(Key: ${col.key})</span></span>`;
+        html += `<div style="display: flex; gap: 4px;">`;
+        if (index > 0) {
+          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, -1)">⬆️</button>`;
+        }
+        if (index < sheet.columns.length - 1) {
+          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)">⬇️</button>`;
+        }
+        if (sheet.columns.length > 1) {
+          html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})">🗑️ 刪除</button>`;
+        }
+        html += `</div>`;
+        item.innerHTML = html;
+        container.appendChild(item);
+      });
+    }
+
+    window.addNewColumn = function() {
+      const nameInput = document.getElementById('new-column-name');
+      const label = nameInput.value.trim();
+      if (!label) {
+        alert("請輸入欄位名稱！");
+        return;
+      }
+      const sheet = getActiveSheet();
+      const key = "col_" + Date.now();
+      sheet.columns.push({ key, label });
+      nameInput.value = "";
+      renderColumnList();
+      saveData();
+    };
+
+    window.deleteColumn = function(index) {
+      const sheet = getActiveSheet();
+      if (sheet.columns.length <= 1) {
+        alert("至少需要保留一個欄位！");
+        return;
+      }
+      if (confirm(`確定要刪除欄位「${sheet.columns[index].label}」嗎？該欄位的資料將會被移除。`)) {
+        const colKey = sheet.columns[index].key;
+        sheet.columns.splice(index, 1);
+        sheet.data.forEach(row => { delete row[colKey]; });
+        renderColumnList();
+        saveData();
+      }
+    };
+
+    window.moveColumn = function(index, direction) {
+      const sheet = getActiveSheet();
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= sheet.columns.length) return;
+      const temp = sheet.columns[index];
+      sheet.columns[index] = sheet.columns[targetIndex];
+      sheet.columns[targetIndex] = temp;
+      renderColumnList();
+      saveData();
+    };
+
     window.exportToExcel = function() {
       const sheet = getActiveSheet();
       const exportData = sheet.data.map(row => {
@@ -541,17 +705,12 @@
       reader.readAsArrayBuffer(file);
     };
 
-    // 第一個工作表專屬：一鍵匯出 Capacity Roadmap PNG
     window.exportCapacityRoadmapPNG = function() {
       const targetArea = document.querySelector('.tab-content');
       if (!targetArea) return;
-
-      // 暫時隱藏不需要出現在截圖裡的工具列按鈕，保持乾淨
-      const toolbar = document.querySelector('.toolbar');
-      const originalToolbarDisplay = toolbar.style.display;
       
       html2canvas(targetArea, {
-        scale: 2, // 高解析度
+        scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff'
       }).then(canvas => {
@@ -580,7 +739,6 @@
     window.switchChartPage = function(pageId, btnEl) {
       document.querySelectorAll('.chart-page').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.chart-tab-btn').forEach(el => el.classList.remove('active'));
-      
       document.getElementById(pageId).classList.add('active');
       btnEl.classList.add('active');
     };
@@ -596,7 +754,6 @@
     function createSampledDataLabelsConfig(totalCount) {
       const maxPoints = 5;
       const sampledIndices = new Set();
-      
       if (totalCount <= maxPoints) {
         for (let i = 0; i < totalCount; i++) sampledIndices.add(i);
       } else {
@@ -607,35 +764,22 @@
           sampledIndices.add(Math.round(i * step));
         }
       }
-
       return {
         anchor: 'end',
         align: (ctx) => (ctx.dataIndex === totalCount - 1 ? 'left' : 'top'),
         offset: 6,
         color: '#1e293b',
-        backgroundColor: null,
-        borderWidth: 0,
-        font: { weight: 'bold', size: 12 },
-        formatter: (val, ctx) => {
-          if (!sampledIndices.has(ctx.dataIndex)) return '';
-          return val.toLocaleString();
-        }
+        formatter: (val, ctx) => sampledIndices.has(ctx.dataIndex) ? val.toLocaleString() : ''
       };
     }
 
     const commonScalesConfig = {
       x: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
-      y: { 
-        ticks: { color: '#64748b' }, 
-        grid: { color: '#e2e8f0' }, 
-        beginAtZero: true,
-        grace: '18%'
-      }
+      y: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' }, beginAtZero: true, grace: '18%' }
     };
 
     function renderChart() {
       const sheet = getActiveSheet();
-
       const vendorStats = {};
       const vendorPcsStats = {};
       const pendingStats = {};
@@ -652,18 +796,12 @@
           vendorStats[vendor] = (vendorStats[vendor] || 0) + 1;
           vendorPcsStats[vendor] = (vendorPcsStats[vendor] || 0) + pcs;
         }
-
         if (pendingVendor) {
           pendingStats[pendingVendor] = (pendingStats[pendingVendor] || 0) + 1;
-          if (assignDate) {
-            pendingDailyMap[assignDate] = (pendingDailyMap[assignDate] || 0) + 1;
-          }
+          if (assignDate) pendingDailyMap[assignDate] = (pendingDailyMap[assignDate] || 0) + 1;
         }
-
         if (assignDate) {
-          if (!dateDailyMap[assignDate]) {
-            dateDailyMap[assignDate] = { count: 0, pcs: 0 };
-          }
+          if (!dateDailyMap[assignDate]) dateDailyMap[assignDate] = { count: 0, pcs: 0 };
           dateDailyMap[assignDate].count += 1;
           dateDailyMap[assignDate].pcs += pcs;
         }
@@ -673,142 +811,59 @@
 
       chartInstances['vendorCount'] = new Chart(document.getElementById('vendorCountChart'), {
         type: 'bar',
-        data: {
-          labels: Object.keys(vendorStats),
-          datasets: [{ label: '已派工件數', data: Object.values(vendorStats), backgroundColor: '#0284c7' }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsStandardConfig }
-        }
+        data: { labels: Object.keys(vendorStats), datasets: [{ label: '已派工件數', data: Object.values(vendorStats), backgroundColor: '#0284c7' }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig, plugins: { datalabels: datalabelsStandardConfig } }
       });
 
       chartInstances['vendorPcs'] = new Chart(document.getElementById('vendorPcsChart'), {
         type: 'bar',
-        data: {
-          labels: Object.keys(vendorPcsStats),
-          datasets: [{ label: '已交貨 (PCS)', data: Object.values(vendorPcsStats), backgroundColor: '#059669' }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsStandardConfig }
-        }
+        data: { labels: Object.keys(vendorPcsStats), datasets: [{ label: '已交貨 (PCS)', data: Object.values(vendorPcsStats), backgroundColor: '#059669' }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig, plugins: { datalabels: datalabelsStandardConfig } }
       });
 
       chartInstances['faiPending'] = new Chart(document.getElementById('faiPendingChart'), {
         type: 'bar',
-        data: {
-          labels: Object.keys(pendingStats),
-          datasets: [{ label: '待驗證件數', data: Object.values(pendingStats), backgroundColor: '#d97706' }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: commonScalesConfig,
-          plugins: { datalabels: datalabelsStandardConfig }
-        }
+        data: { labels: Object.keys(pendingStats), datasets: [{ label: '待驗證件數', data: Object.values(pendingStats), backgroundColor: '#d97706' }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: commonScalesConfig, plugins: { datalabels: datalabelsStandardConfig } }
       });
 
       const sortedDates = Object.keys(dateDailyMap).sort();
       const cumulativeCountData = [];
       const cumulativePcsData = [];
-      let runningCount = 0;
-      let runningPcs = 0;
-
+      let runningCount = 0, runningPcs = 0;
       sortedDates.forEach(date => {
         runningCount += dateDailyMap[date].count;
         runningPcs += dateDailyMap[date].pcs;
         cumulativeCountData.push(runningCount);
         cumulativePcsData.push(runningPcs);
       });
-
       const cumulativeDataLabels = createSampledDataLabelsConfig(sortedDates.length);
 
       chartInstances['dailyCount'] = new Chart(document.getElementById('dailyCountChart'), {
         type: 'line',
-        data: {
-          labels: sortedDates,
-          datasets: [{
-            label: 'FAI已派工逐日累積件數',
-            data: cumulativeCountData,
-            borderColor: '#0284c7',
-            backgroundColor: 'rgba(2, 132, 199, 0.1)',
-            pointBackgroundColor: '#0284c7',
-            pointRadius: 4,
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          layout: { padding: { right: 40, top: 10 } },
-          scales: commonScalesConfig,
-          plugins: { datalabels: cumulativeDataLabels }
-        }
+        data: { labels: sortedDates, datasets: [{ label: 'FAI已派工逐日累積件數', data: cumulativeCountData, borderColor: '#0284c7', backgroundColor: 'rgba(2, 132, 199, 0.1)', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: false, layout: { padding: { right: 40, top: 10 } }, scales: commonScalesConfig, plugins: { datalabels: cumulativeDataLabels } }
       });
 
       chartInstances['dailyPcs'] = new Chart(document.getElementById('dailyPcsChart'), {
         type: 'line',
-        data: {
-          labels: sortedDates,
-          datasets: [{
-            label: 'FAI已派工逐日累積PCS數',
-            data: cumulativePcsData,
-            borderColor: '#7c3aed',
-            backgroundColor: 'rgba(124, 58, 237, 0.1)',
-            pointBackgroundColor: '#7c3aed',
-            pointRadius: 4,
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          layout: { padding: { right: 40, top: 10 } },
-          scales: commonScalesConfig,
-          plugins: { datalabels: cumulativeDataLabels }
-        }
+        data: { labels: sortedDates, datasets: [{ label: 'FAI已派工逐日累積PCS數', data: cumulativePcsData, borderColor: '#7c3aed', backgroundColor: 'rgba(124, 58, 237, 0.1)', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: false, layout: { padding: { right: 40, top: 10 } }, scales: commonScalesConfig, plugins: { datalabels: cumulativeDataLabels } }
       });
 
       const sortedPendingDates = Object.keys(pendingDailyMap).sort();
       const cumulativePendingCountData = [];
       let runningPendingCount = 0;
-
       sortedPendingDates.forEach(date => {
         runningPendingCount += pendingDailyMap[date];
         cumulativePendingCountData.push(runningPendingCount);
       });
-
       const pendingCumulativeDataLabels = createSampledDataLabelsConfig(sortedPendingDates.length);
 
       chartInstances['faiPendingDaily'] = new Chart(document.getElementById('faiPendingDailyChart'), {
         type: 'line',
-        data: {
-          labels: sortedPendingDates,
-          datasets: [{
-            label: 'FAI待驗證逐日累積件數',
-            data: cumulativePendingCountData,
-            borderColor: '#d97706',
-            backgroundColor: 'rgba(217, 119, 6, 0.1)',
-            pointBackgroundColor: '#d97706',
-            pointRadius: 4,
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          layout: { padding: { right: 40, top: 10 } },
-          scales: commonScalesConfig,
-          plugins: { datalabels: pendingCumulativeDataLabels }
-        }
+        data: { labels: sortedPendingDates, datasets: [{ label: 'FAI待驗證逐日累積件數', data: cumulativePendingCountData, borderColor: '#d97706', backgroundColor: 'rgba(217, 119, 6, 0.1)', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: false, layout: { padding: { right: 40, top: 10 } }, scales: commonScalesConfig, plugins: { datalabels: pendingCumulativeDataLabels } }
       });
     }
 
@@ -845,16 +900,33 @@
 
       let headHtml = '<tr>';
       sheet.columns.forEach(col => { headHtml += `<th>${col.label}</th>`; });
+      if (isAdmin) {
+        headHtml += `<th style="text-align: center; width: 120px;">操作</th>`;
+      }
       headHtml += '</tr>';
       thead.innerHTML = headHtml;
 
       tbody.innerHTML = '';
-      sheet.data.forEach(row => {
+      sheet.data.forEach((row, rowIndex) => {
         const tr = document.createElement('tr');
         let bodyHtml = '';
         sheet.columns.forEach(col => {
-          bodyHtml += `<td>${row[col.key] || ''}</td>`;
+          const val = row[col.key] !== undefined ? row[col.key] : '';
+          if (isAdmin) {
+            bodyHtml += `<td><input type="text" class="table-input" value="${val}" onchange="updateCell(${rowIndex}, '${col.key}', this.value)"></td>`;
+          } else {
+            bodyHtml += `<td>${val}</td>`;
+          }
         });
+
+        if (isAdmin) {
+          bodyHtml += `<td style="text-align: center; white-space: nowrap;">`;
+          if (rowIndex > 0) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, -1)" title="上移">⬆️</button>`;
+          if (rowIndex < sheet.data.length - 1) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, 1)" title="下移">⬇️</button>`;
+          bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑️</button>`;
+          bodyHtml += `</td>`;
+        }
+
         tr.innerHTML = bodyHtml;
         tbody.appendChild(tr);
       });
@@ -863,11 +935,9 @@
     window.exportChartImage = function(canvasId, fileName) {
       const srcCanvas = document.getElementById(canvasId);
       if (!srcCanvas) return;
-
       Object.values(chartInstances).forEach(chart => chart && chart.update());
 
-      const padding = 20;
-      const titleHeight = 40;
+      const padding = 20, titleHeight = 40;
       const exportWidth = srcCanvas.width + padding * 2;
       const exportHeight = srcCanvas.height + titleHeight + padding * 2;
 
@@ -879,34 +949,23 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-      const cardX = padding;
-      const cardY = padding;
-      const cardWidth = exportWidth - padding * 2;
-      const cardHeight = exportHeight - padding * 2;
-
       ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
+      ctx.fillRect(padding, padding, exportWidth - padding * 2, exportHeight - padding * 2);
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
+      ctx.strokeRect(padding, padding, exportWidth - padding * 2, exportHeight - padding * 2);
 
       ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(fileName, cardX + 20, cardY + 25);
+      ctx.fillText(fileName, padding + 20, padding + 25);
 
-      const chartDrawX = cardX + 10;
-      const chartDrawY = cardY + titleHeight + 5;
-      const chartDrawWidth = cardWidth - 20;
-      const chartDrawHeight = cardHeight - titleHeight - 15;
+      ctx.drawImage(srcCanvas, padding + 10, padding + titleHeight + 5, exportWidth - padding * 2 - 20, exportHeight - padding * 2 - titleHeight - 15);
 
-      ctx.drawImage(srcCanvas, chartDrawX, chartDrawY, chartDrawWidth, chartDrawHeight);
-
-      const imageURL = exportCanvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `${fileName}_${new Date().toISOString().slice(0, 10)}.png`;
-      link.href = imageURL;
+      link.href = exportCanvas.toDataURL('image/png');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -921,12 +980,7 @@
           page.style.display = 'flex';
         });
 
-        Object.values(chartInstances).forEach(chart => {
-          if (chart) {
-            chart.resize();
-            chart.update();
-          }
-        });
+        Object.values(chartInstances).forEach(chart => { if (chart) { chart.resize(); chart.update(); } });
 
         const chartsConfig = [
           { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
@@ -938,22 +992,15 @@
         ];
 
         const combinedCanvas = document.createElement('canvas');
-        const singleWidth = 750;
-        const singleHeight = 400;
-        const padding = 30;
-        const headerHeight = 70;
-
-        const cols = 3;
-        const rows = 2;
+        const singleWidth = 750, singleHeight = 400, padding = 30, headerHeight = 70;
+        const cols = 3, rows = 2;
 
         combinedCanvas.width = cols * singleWidth + (cols + 1) * padding;
         combinedCanvas.height = headerHeight + rows * singleHeight + (rows + 1) * padding;
-
         const ctx = combinedCanvas.getContext('2d');
 
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
-
         ctx.fillStyle = '#0284c7';
         ctx.font = 'bold 28px sans-serif';
         ctx.textAlign = 'center';
@@ -961,11 +1008,8 @@
 
         chartsConfig.forEach((item, index) => {
           const srcCanvas = document.getElementById(item.id);
-          if (!srcCanvas || srcCanvas.width === 0 || srcCanvas.height === 0) return;
-
-          const col = index % cols;
-          const row = Math.floor(index / cols);
-
+          if (!srcCanvas) return;
+          const col = index % cols, row = Math.floor(index / cols);
           const x = padding + col * (singleWidth + padding);
           const y = headerHeight + padding + row * (singleHeight + padding);
 
@@ -980,32 +1024,17 @@
           ctx.textAlign = 'left';
           ctx.fillText(item.title, x + 16, y + 30);
 
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = srcCanvas.width;
-          tempCanvas.height = srcCanvas.height;
-          const tempCtx = tempCanvas.getContext('2d');
-
-          tempCtx.fillStyle = '#f8fafc';
-          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-          tempCtx.drawImage(srcCanvas, 0, 0);
-
-          const chartDrawY = y + 40;
-          const chartDrawHeight = singleHeight - 50;
-          ctx.drawImage(tempCanvas, x + 10, chartDrawY, singleWidth - 20, chartDrawHeight);
+          ctx.drawImage(srcCanvas, x + 10, y + 40, singleWidth - 20, singleHeight - 50);
         });
 
-        pages.forEach((page, idx) => {
-          page.style.display = originalDisplays[idx];
-        });
+        pages.forEach((page, idx) => { page.style.display = originalDisplays[idx]; });
 
-        const imageURL = combinedCanvas.toDataURL('image/png');
         const link = document.createElement('a');
         link.download = `衛星工廠進度追蹤_6合1分析報告_${new Date().toISOString().slice(0,10)}.png`;
-        link.href = imageURL;
+        link.href = combinedCanvas.toDataURL('image/png');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
       } catch (err) {
         console.error(err);
         alert('匯出圖表時發生錯誤：' + err.message);
