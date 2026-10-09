@@ -39,8 +39,9 @@
       color: var(--text-main);
     }
 
+    /* 預設絕對隱藏，登入後透過 JS 改為 flex 顯示 */
     .app-container {
-      display: none; /* 預設隱藏，需登入後顯示 */
+      display: none !important;
       flex-direction: column;
       height: 100vh;
       padding: 16px 24px;
@@ -234,16 +235,16 @@
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(6px);
-      display: flex; /* 預設開啟登入防護遮罩 */
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex; /* 預設強制顯示登入畫面 */
       justify-content: center;
       align-items: center;
-      z-index: 200;
+      z-index: 9999;
     }
 
     .modal-large {
-      width: 1000px;
+      width: 400px;
       max-width: 95vw;
       background: #ffffff;
       border: 1px solid var(--border-color);
@@ -252,7 +253,7 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
     }
 
     .chart-modal-header {
@@ -282,11 +283,6 @@
       transition: all 0.2s;
     }
 
-    .chart-tab-btn:hover {
-      background: #e2e8f0;
-      color: var(--text-main);
-    }
-
     .chart-tab-btn.active {
       background: var(--accent);
       color: #fff;
@@ -310,7 +306,7 @@
 </head>
 <body>
 
-  <!-- 主應用介面容器 (預設隱藏，需登入後解鎖) -->
+  <!-- 主應用介面容器 (絕對隱藏，登入前絕不顯示內容) -->
   <div class="app-container" id="app-main-container">
     <header>
       <div class="brand-title">
@@ -344,7 +340,6 @@
         <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
         <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
         
-        <!-- 編輯按鈕 -->
         <div id="admin-action-toolbar" style="display: inline-flex; gap: 8px; margin-left: 12px; border-left: 1px solid var(--border-color); padding-left: 12px;">
           <button class="btn btn-primary" onclick="addRow()">➕ 新增資料列</button>
           <button class="btn btn-primary" onclick="addColumnModal()">⚙️ 欄位管理 (新增/搬移/刪除)</button>
@@ -362,13 +357,13 @@
     </div>
   </div>
 
-  <!-- Firebase 登入 Modal (入口處強制登入) -->
+  <!-- Firebase 登入 Modal (強制入口防護) -->
   <div id="login-modal" class="modal-backdrop">
-    <div class="modal-large" style="width: 400px; gap: 12px;">
+    <div class="modal-large">
       <div class="chart-modal-header">
-        <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">🔐 系統登入</h3>
+        <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">🔐 系統安全登入</h3>
       </div>
-      <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">請輸入 Firebase 電子郵件與密碼以進入系統使用所有功能。</p>
+      <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">請輸入 Firebase 電子郵件與密碼以解鎖並檢視所有系統內容。</p>
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
         <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">電子郵件 (Email)</label>
         <input type="email" id="firebase-email" class="table-input" placeholder="name@company.com">
@@ -384,7 +379,7 @@
 
   <!-- 分析圖表 Modal -->
   <div id="analysis-modal" class="modal-backdrop" style="display: none;">
-    <div class="modal-large">
+    <div class="modal-large" style="width: 1000px;">
       <div class="chart-modal-header">
         <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
         <button class="btn btn-success" onclick="exportAllChartsCombined()">🖼 一鍵匯出所有圖表 (6合1)</button>
@@ -475,24 +470,28 @@
     const auth = getAuth(app);
     const DB_REF = ref(db, "outsourcing_tracker/main_data");
 
-    let isDataLoadedFromCloud = false;
+    let isInitialized = false;
 
-    // 監聽 Firebase 登入狀態
+    // 嚴格監聽 Firebase 登入狀態
     onAuthStateChanged(auth, (user) => {
       const loginModal = document.getElementById('login-modal');
       const mainContainer = document.getElementById('app-main-container');
 
       if (user) {
-        // 已登入：隱藏登入框，顯示主應用程式並啟動 Realtime Database 監聽
+        // 已登入：隱藏登入遮罩，並將主畫面顯示為 flex
         loginModal.style.display = 'none';
-        mainContainer.style.display = 'flex';
+        mainContainer.style.setProperty('display', 'flex', 'important');
         document.getElementById('user-status-text').innerText = `已登入：${user.email}`;
-        initRealtimeSync();
+        
+        if (!isInitialized) {
+          isInitialized = true;
+          initRealtimeSync();
+        }
       } else {
-        // 未登入：強制彈出登入框，隱藏主應用程式
+        // 未登入：強制顯示登入遮罩，主畫面維持隱藏
         loginModal.style.display = 'flex';
-        mainContainer.style.display = 'none';
-        isDataLoadedFromCloud = false;
+        mainContainer.style.setProperty('display', 'none', 'important');
+        isInitialized = false;
       }
     });
 
@@ -517,7 +516,7 @@
 
     window.handleLogout = function() {
       signOut(auth).then(() => {
-        // 登出後 onAuthStateChanged 會自動切換回登入畫面
+        // 登出後 onAuthStateChanged 會自動鎖定畫面
       }).catch((error) => {
         console.error(error);
       });
@@ -572,7 +571,6 @@
           document.getElementById('last-updated-time').innerText = `最後更新：${updatedAt}`;
           statusEl.innerText = "✅ 即時同步連線中";
         } else {
-          // 如果資料庫尚無資料，寫入預設初始資料
           saveData();
         }
         renderSheets();
