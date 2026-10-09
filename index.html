@@ -40,7 +40,7 @@
     }
 
     .app-container {
-      display: flex;
+      display: none; /* 預設隱藏，需登入後顯示 */
       flex-direction: column;
       height: 100vh;
       padding: 16px 24px;
@@ -234,9 +234,9 @@
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(4px);
-      display: none;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(6px);
+      display: flex; /* 預設開啟登入防護遮罩 */
       justify-content: center;
       align-items: center;
       z-index: 200;
@@ -310,6 +310,7 @@
 </head>
 <body>
 
+  <!-- 主應用介面容器 (預設隱藏，需登入後解鎖) -->
   <div class="app-container" id="app-main-container">
     <header>
       <div class="brand-title">
@@ -322,14 +323,14 @@
         </div>
       </div>
       <div class="user-control">
-        <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">權限：訪客 (唯讀)</span>
-        <button id="auth-btn" class="btn btn-primary" onclick="openLoginModal()">管理員登入</button>
+        <span id="user-status-text" style="font-size: 0.9rem; color: var(--text-muted);">已登入</span>
+        <button id="auth-btn" class="btn btn-danger" onclick="handleLogout()">登出系統</button>
       </div>
     </header>
 
     <div class="sheet-bar">
       <div id="sheets-container" style="display: flex; gap: 6px; align-items: center;"></div>
-      <div id="admin-sheet-toolbar" style="display: none; gap: 6px; align-items: center; margin-left: auto;">
+      <div id="admin-sheet-toolbar" style="display: flex; gap: 6px; align-items: center; margin-left: auto;">
         <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="renameActiveSheet()">✏️ 修改工作表名稱</button>
         <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="addNewSheet()">➕ 新增工作表</button>
       </div>
@@ -343,8 +344,8 @@
         <button class="btn" onclick="document.getElementById('import-excel-input').click()">📤 匯入 Excel</button>
         <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;" onchange="importFromExcel(event)" />
         
-        <!-- 管理員專用編輯按鈕 (預設隱藏) -->
-        <div id="admin-action-toolbar" style="display: none; display: inline-flex; gap: 8px; margin-left: 12px; border-left: 1px solid var(--border-color); padding-left: 12px;">
+        <!-- 編輯按鈕 -->
+        <div id="admin-action-toolbar" style="display: inline-flex; gap: 8px; margin-left: 12px; border-left: 1px solid var(--border-color); padding-left: 12px;">
           <button class="btn btn-primary" onclick="addRow()">➕ 新增資料列</button>
           <button class="btn btn-primary" onclick="addColumnModal()">⚙️ 欄位管理 (新增/搬移/刪除)</button>
         </div>
@@ -361,29 +362,28 @@
     </div>
   </div>
 
-  <!-- Firebase 登入 Modal -->
+  <!-- Firebase 登入 Modal (入口處強制登入) -->
   <div id="login-modal" class="modal-backdrop">
     <div class="modal-large" style="width: 400px; gap: 12px;">
       <div class="chart-modal-header">
-        <h3 style="margin: 0; color: #0f172a; font-size: 1.2rem;">🔐 管理員登入 (Firebase 帳密)</h3>
-        <button class="btn" onclick="closeLoginModal()">✕</button>
+        <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">🔐 系統登入</h3>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
+      <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">請輸入 Firebase 電子郵件與密碼以進入系統使用所有功能。</p>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
         <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">電子郵件 (Email)</label>
-        <input type="email" id="firebase-email" class="table-input" placeholder="請輸入管理員 Email">
+        <input type="email" id="firebase-email" class="table-input" placeholder="name@company.com">
         
         <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-top: 4px;">密碼 (Password)</label>
-        <input type="password" id="firebase-password" class="table-input" placeholder="請輸入密碼">
+        <input type="password" id="firebase-password" class="table-input" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter') handleFirebaseLogin()">
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
-        <button class="btn" onclick="closeLoginModal()">取消</button>
-        <button class="btn btn-primary" onclick="handleFirebaseLogin()">登入</button>
+        <button class="btn btn-primary" style="width: 100%; padding: 10px;" onclick="handleFirebaseLogin()">登入系統</button>
       </div>
     </div>
   </div>
 
   <!-- 分析圖表 Modal -->
-  <div id="analysis-modal" class="modal-backdrop">
+  <div id="analysis-modal" class="modal-backdrop" style="display: none;">
     <div class="modal-large">
       <div class="chart-modal-header">
         <h3 style="margin: 0; color: #0f172a; font-size: 1.3rem;">📊 衛星工廠進度追蹤分析</h3>
@@ -434,7 +434,7 @@
   </div>
 
   <!-- 欄位管理 Modal -->
-  <div id="column-modal" class="modal-backdrop">
+  <div id="column-modal" class="modal-backdrop" style="display: none;">
     <div class="modal-large" style="width: 600px;">
       <div class="chart-modal-header">
         <h3 style="margin: 0; color: #0f172a; font-size: 1.2rem;">⚙️ 表格欄位管理（左右搬移、刪除、新增）</h3>
@@ -453,7 +453,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     if (typeof ChartDataLabels !== 'undefined') {
@@ -463,6 +463,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
       authDomain: "outsourcemfg-59ca8.firebaseapp.com",
+      databaseURL: "https://outsourcemfg-59ca8-default-rtdb.firebaseio.com",
       projectId: "outsourcemfg-59ca8",
       storageBucket: "outsourcemfg-59ca8.firebasestorage.app",
       messagingSenderId: "408387263887",
@@ -470,47 +471,30 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const db = getDatabase(app);
     const auth = getAuth(app);
-    const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
+    const DB_REF = ref(db, "outsourcing_tracker/main_data");
 
-    let isAdmin = false;
+    let isDataLoadedFromCloud = false;
 
     // 監聽 Firebase 登入狀態
     onAuthStateChanged(auth, (user) => {
+      const loginModal = document.getElementById('login-modal');
+      const mainContainer = document.getElementById('app-main-container');
+
       if (user) {
-        isAdmin = true;
-        document.getElementById('user-status-text').innerText = `權限：管理員 (${user.email})`;
-        document.getElementById('user-status-text').style.color = "#059669";
-        document.getElementById('auth-btn').innerText = "登出管理員";
-        document.getElementById('admin-action-toolbar').style.display = 'inline-flex';
-        document.getElementById('admin-sheet-toolbar').style.display = 'flex';
+        // 已登入：隱藏登入框，顯示主應用程式並啟動 Realtime Database 監聽
+        loginModal.style.display = 'none';
+        mainContainer.style.display = 'flex';
+        document.getElementById('user-status-text').innerText = `已登入：${user.email}`;
+        initRealtimeSync();
       } else {
-        isAdmin = false;
-        document.getElementById('user-status-text').innerText = "權限：訪客 (唯讀)";
-        document.getElementById('user-status-text').style.color = "var(--text-muted)";
-        document.getElementById('auth-btn').innerText = "管理員登入";
-        document.getElementById('admin-action-toolbar').style.display = 'none';
-        document.getElementById('admin-sheet-toolbar').style.display = 'none';
+        // 未登入：強制彈出登入框，隱藏主應用程式
+        loginModal.style.display = 'flex';
+        mainContainer.style.display = 'none';
+        isDataLoadedFromCloud = false;
       }
-      renderTable();
     });
-
-    window.openLoginModal = function() {
-      if (!isAdmin) {
-        document.getElementById('login-modal').style.display = 'flex';
-      } else {
-        signOut(auth).then(() => {
-          alert("已成功登出。");
-        }).catch((error) => {
-          console.error(error);
-        });
-      }
-    };
-
-    window.closeLoginModal = function() {
-      document.getElementById('login-modal').style.display = 'none';
-    };
 
     window.handleFirebaseLogin = function() {
       const email = document.getElementById('firebase-email').value.trim();
@@ -522,15 +506,21 @@
       }
 
       signInWithEmailAndPassword(auth, email, password)
-        .then((userCredential) => {
-          closeLoginModal();
+        .then(() => {
           document.getElementById('firebase-email').value = '';
           document.getElementById('firebase-password').value = '';
-          alert("登入成功！已開啟管理員權限。");
         })
         .catch((error) => {
           alert(`登入失敗：${error.message}`);
         });
+    };
+
+    window.handleLogout = function() {
+      signOut(auth).then(() => {
+        // 登出後 onAuthStateChanged 會自動切換回登入畫面
+      }).catch((error) => {
+        console.error(error);
+      });
     };
 
     const defaultColumns = [
@@ -552,52 +542,53 @@
     let activeSheetId = "sheet_roadmap";
     let chartInstances = {};
 
-    async function saveData() {
+    function saveData() {
       const statusEl = document.getElementById('sync-status');
       const nowStr = new Date().toLocaleString('zh-TW');
-      statusEl.innerText = "☁️ 同步至雲端中...";
-      try {
-        await setDoc(DOC_REF, {
-          workbook: workbook,
-          activeSheetId: activeSheetId,
-          updatedAt: nowStr
-        });
+      statusEl.innerText = "☁️ 同步至 Realtime DB...";
+      set(DB_REF, {
+        workbook: workbook,
+        activeSheetId: activeSheetId,
+        updatedAt: nowStr
+      }).then(() => {
         statusEl.innerText = "✅ 已同步雲端";
         document.getElementById('last-updated-time').innerText = `最後更新：${nowStr}`;
-      } catch (e) {
+      }).catch((e) => {
         console.error(e);
         statusEl.innerText = "❌ 雲端同步失敗";
-      }
+      });
     }
 
-    async function loadDataFromCloud() {
+    function initRealtimeSync() {
       const statusEl = document.getElementById('sync-status');
-      try {
-        const docSnap = await getDoc(DOC_REF);
-        if (docSnap.exists()) {
-          const cloudData = docSnap.data();
+      statusEl.innerText = "☁ 連結 Realtime DB 中...";
+      
+      onValue(DB_REF, (snapshot) => {
+        const cloudData = snapshot.val();
+        if (cloudData) {
           workbook = cloudData.workbook || workbook;
           activeSheetId = cloudData.activeSheetId || workbook[0].id;
           const updatedAt = cloudData.updatedAt || new Date().toLocaleString('zh-TW');
           document.getElementById('last-updated-time').innerText = `最後更新：${updatedAt}`;
-          statusEl.innerText = "✅ 雲端資料載入完成";
+          statusEl.innerText = "✅ 即時同步連線中";
+        } else {
+          // 如果資料庫尚無資料，寫入預設初始資料
+          saveData();
         }
-      } catch (e) {
-        console.error(e);
-        statusEl.innerText = "⚠️ 載入失敗";
-      }
-      renderSheets();
-      renderTable();
-      checkRoadmapBtnVisibility();
+        renderSheets();
+        renderTable();
+        checkRoadmapBtnVisibility();
+      }, (error) => {
+        console.error(error);
+        statusEl.innerText = "⚠️ 雲端連線異常";
+      });
     }
 
     function getActiveSheet() {
       return workbook.find(s => s.id === activeSheetId) || workbook[0];
     }
 
-    // 工作表相關操作
     window.renameActiveSheet = function() {
-      if (!isAdmin) return;
       const sheet = getActiveSheet();
       const newName = prompt("請輸入新的工作表名稱：", sheet.name);
       if (newName && newName.trim() !== "") {
@@ -608,7 +599,6 @@
     };
 
     window.addNewSheet = function() {
-      if (!isAdmin) return;
       const sheetName = prompt("請輸入新工作表名稱：", "新工作表");
       if (!sheetName || sheetName.trim() === "") return;
 
@@ -627,7 +617,6 @@
     };
 
     window.addRow = function() {
-      if (!isAdmin) return;
       const sheet = getActiveSheet();
       let newRow = {};
       sheet.columns.forEach(col => { newRow[col.key] = ""; });
@@ -637,7 +626,6 @@
     };
 
     window.deleteRow = function(index) {
-      if (!isAdmin) return;
       if (confirm("確定要刪除這一列嗎？")) {
         const sheet = getActiveSheet();
         sheet.data.splice(index, 1);
@@ -647,7 +635,6 @@
     };
 
     window.moveRow = function(index, direction) {
-      if (!isAdmin) return;
       const sheet = getActiveSheet();
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= sheet.data.length) return;
@@ -667,7 +654,6 @@
     };
 
     window.addColumnModal = function() {
-      if (!isAdmin) return;
       renderColumnList();
       document.getElementById('column-modal').style.display = 'flex';
     };
@@ -693,10 +679,10 @@
           html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, -1)" title="向左移動">⬅️ 左移</button>`;
         }
         if (index < sheet.columns.length - 1) {
-          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)" title="向右移動">右移 ➡️️</button>`;
+          html += `<button class="btn" style="padding: 2px 8px;" onclick="moveColumn(${index}, 1)" title="向右移動">右移 ➡</button>`;
         }
         
-        html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})" title="刪除欄位">🗑️️ 刪除</button>`;
+        html += `<button class="btn btn-danger" style="padding: 2px 8px;" onclick="deleteColumn(${index})" title="刪除欄位">🗑 刪除</button>`;
         html += `</div>`;
         item.innerHTML = html;
         container.appendChild(item);
@@ -957,9 +943,7 @@
           renderTable();
           checkRoadmapBtnVisibility();
         };
-        // 支援管理員雙擊直接修改名稱
         tab.ondblclick = () => {
-          if (!isAdmin) return;
           const newName = prompt("請輸入新的工作表名稱：", sheet.name);
           if (newName && newName.trim() !== "") {
             sheet.name = newName.trim();
@@ -987,9 +971,7 @@
 
       let headHtml = '<tr>';
       sheet.columns.forEach(col => { headHtml += `<th>${col.label}</th>`; });
-      if (isAdmin) {
-        headHtml += `<th style="text-align: center; width: 120px;">操作</th>`;
-      }
+      headHtml += `<th style="text-align: center; width: 120px;">操作</th>`;
       headHtml += '</tr>';
       thead.innerHTML = headHtml;
 
@@ -999,20 +981,14 @@
         let bodyHtml = '';
         sheet.columns.forEach(col => {
           const val = row[col.key] !== undefined ? row[col.key] : '';
-          if (isAdmin) {
-            bodyHtml += `<td><input type="text" class="table-input" value="${val}" onchange="updateCell(${rowIndex}, '${col.key}', this.value)"></td>`;
-          } else {
-            bodyHtml += `<td>${val}</td>`;
-          }
+          bodyHtml += `<td><input type="text" class="table-input" value="${val}" onchange="updateCell(${rowIndex}, '${col.key}', this.value)"></td>`;
         });
 
-        if (isAdmin) {
-          bodyHtml += `<td style="text-align: center; white-space: nowrap;">`;
-          if (rowIndex > 0) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, -1)" title="上移">⬆️</button>`;
-          if (rowIndex < sheet.data.length - 1) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, 1)" title="下移">⬇️</button>`;
-          bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑</button>`;
-          bodyHtml += `</td>`;
-        }
+        bodyHtml += `<td style="text-align: center; white-space: nowrap;">`;
+        if (rowIndex > 0) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, -1)" title="上移">⬆️</button>`;
+        if (rowIndex < sheet.data.length - 1) bodyHtml += `<button class="btn" style="padding: 2px 6px; margin-right: 2px;" onclick="moveRow(${rowIndex}, 1)" title="下移">⬇️</button>`;
+        bodyHtml += `<button class="btn btn-danger" style="padding: 2px 6px;" onclick="deleteRow(${rowIndex})" title="刪除">🗑</button>`;
+        bodyHtml += `</td>`;
 
         tr.innerHTML = bodyHtml;
         tbody.appendChild(tr);
@@ -1127,8 +1103,6 @@
         alert('匯出圖表時發生錯誤：' + err.message);
       }
     };
-
-    loadDataFromCloud();
   </script>
 </body>
 </html>
