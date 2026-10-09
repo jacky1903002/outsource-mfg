@@ -39,7 +39,6 @@
       color: var(--text-main);
     }
 
-    /* 預設絕對隱藏，登入後透過 JS 改為 flex 顯示 */
     .app-container {
       display: none !important;
       flex-direction: column;
@@ -237,7 +236,7 @@
       top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(8px);
-      display: flex; /* 預設強制顯示登入畫面 */
+      display: flex;
       justify-content: center;
       align-items: center;
       z-index: 9999;
@@ -306,7 +305,7 @@
 </head>
 <body>
 
-  <!-- 主應用介面容器 (絕對隱藏，登入前絕不顯示內容) -->
+  <!-- 主應用介面容器 -->
   <div class="app-container" id="app-main-container">
     <header>
       <div class="brand-title">
@@ -357,7 +356,7 @@
     </div>
   </div>
 
-  <!-- Firebase 登入 Modal (強制入口防護) -->
+  <!-- Firebase 登入 Modal -->
   <div id="login-modal" class="modal-backdrop">
     <div class="modal-large">
       <div class="chart-modal-header">
@@ -472,23 +471,20 @@
 
     let isInitialized = false;
 
-    // 嚴格監聽 Firebase 登入狀態
     onAuthStateChanged(auth, (user) => {
       const loginModal = document.getElementById('login-modal');
       const mainContainer = document.getElementById('app-main-container');
 
       if (user) {
-        // 已登入：隱藏登入遮罩，並將主畫面顯示為 flex
         loginModal.style.display = 'none';
         mainContainer.style.setProperty('display', 'flex', 'important');
-        document.getElementById('user-status-text').innerText = `已登入：${user.email}`;
+        document.getElementById('user-status-text',).innerText = `已登入：${user.email}`;
         
         if (!isInitialized) {
           isInitialized = true;
           initRealtimeSync();
         }
       } else {
-        // 未登入：強制顯示登入遮罩，主畫面維持隱藏
         loginModal.style.display = 'flex';
         mainContainer.style.setProperty('display', 'none', 'important');
         isInitialized = false;
@@ -515,11 +511,7 @@
     };
 
     window.handleLogout = function() {
-      signOut(auth).then(() => {
-        // 登出後 onAuthStateChanged 會自動鎖定畫面
-      }).catch((error) => {
-        console.error(error);
-      });
+      signOut(auth).then(() => {}).catch((error) => { console.error(error); });
     };
 
     const defaultColumns = [
@@ -564,14 +556,15 @@
       
       onValue(DB_REF, (snapshot) => {
         const cloudData = snapshot.val();
-        if (cloudData) {
-          workbook = cloudData.workbook || workbook;
+        if (cloudData && cloudData.workbook) {
+          // 嚴格保護：只有當雲端確實存在工作表與資料時才進行載入
+          workbook = cloudData.workbook;
           activeSheetId = cloudData.activeSheetId || workbook[0].id;
           const updatedAt = cloudData.updatedAt || new Date().toLocaleString('zh-TW');
           document.getElementById('last-updated-time').innerText = `最後更新：${updatedAt}`;
           statusEl.innerText = "✅ 即時同步連線中";
         } else {
-          saveData();
+          statusEl.innerText = "⚠️ 雲端尚無資料，維持目前空白";
         }
         renderSheets();
         renderTable();
