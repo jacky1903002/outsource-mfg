@@ -474,7 +474,44 @@
 
     let isInitialized = false;
 
-    // 一次性從 Firestore 搬移資料到 Realtime Database 的工具函式
+    const defaultColumns = [
+      { key: "no", label: "No." },
+      { key: "itemNo", label: "品號" },
+      { key: "itemName", label: "品名" },
+      { key: "vendor", label: "廠商" },
+      { key: "faiAssignDate", label: "FAI派工日期" },
+      { key: "faiPassDate", label: "FAI合格日期" },
+      { key: "deliveredPcs", label: "已交貨(PCS)" },
+      { key: "faiPendingVendor", label: "FAI 待驗證廠商" },
+      { key: "status", label: "發單/追蹤狀況" }
+    ];
+
+    let workbook = [
+      { id: "sheet_roadmap", name: "Capacity Roadmap圖鑑表", columns: JSON.parse(JSON.stringify(defaultColumns)), data: [] },
+      { id: "sheet_1", name: "工程及製造追蹤項目", columns: JSON.parse(JSON.stringify(defaultColumns)), data: [] }
+    ];
+    let activeSheetId = "sheet_roadmap";
+    let chartInstances = {};
+
+    // 將初始化與搬移指令掛載到 window，以便在 Console 直接執行
+    window.initRTDBDefault = async function() {
+      try {
+        await set(RTDB_REF, {
+          workbook: [
+            { id: "sheet_roadmap", name: "Capacity Roadmap圖鑑表", columns: defaultColumns, data: [] },
+            { id: "sheet_1", name: "工程及製造追蹤項目", columns: defaultColumns, data: [] }
+          ],
+          activeSheetId: "sheet_roadmap",
+          updatedAt: new Date().toLocaleString('zh-TW')
+        });
+        console.log("Realtime Database 初始化成功！");
+        alert("Realtime Database 初始化成功！");
+      } catch (e) {
+        console.error("初始化失敗：", e);
+        alert("初始化失敗：" + e.message);
+      }
+    };
+
     window.migrateFirestoreToRTDB = async function() {
       try {
         const docSnap = await getDoc(DOC_REF);
@@ -502,7 +539,7 @@
         
         if (!isInitialized) {
           isInitialized = true;
-          initRealtimeSync(); // 登入後開始監聽 Realtime Database
+          initRealtimeSync();
         }
       } else {
         loginModal.style.display = 'flex';
@@ -534,25 +571,6 @@
       signOut(auth).then(() => {}).catch((error) => { console.error(error); });
     };
 
-    const defaultColumns = [
-      { key: "no", label: "No." },
-      { key: "itemNo", label: "品號" },
-      { key: "itemName", label: "品名" },
-      { key: "vendor", label: "廠商" },
-      { key: "faiAssignDate", label: "FAI派工日期" },
-      { key: "faiPassDate", label: "FAI合格日期" },
-      { key: "deliveredPcs", label: "已交貨(PCS)" },
-      { key: "faiPendingVendor", label: "FAI 待驗證廠商" },
-      { key: "status", label: "發單/追蹤狀況" }
-    ];
-
-    let workbook = [
-      { id: "sheet_roadmap", name: "Capacity Roadmap圖鑑表", columns: JSON.parse(JSON.stringify(defaultColumns)), data: [] },
-      { id: "sheet_1", name: "工程及製造追蹤項目", columns: JSON.parse(JSON.stringify(defaultColumns)), data: [] }
-    ];
-    let activeSheetId = "sheet_roadmap";
-    let chartInstances = {};
-
     function saveData() {
       const statusEl = document.getElementById('sync-status');
       const nowStr = new Date().toLocaleString('zh-TW');
@@ -583,7 +601,7 @@
           document.getElementById('last-updated-time').innerText = `最後更新：${updatedAt}`;
           statusEl.innerText = "✅ 即時同步連線中";
         } else {
-          statusEl.innerText = "⚠️ 雲端尚無資料，若有需要請執行搬移";
+          statusEl.innerText = "⚠️ 雲端尚無資料結構，請於 Console 輸入 initRTDBDefault()";
         }
         renderSheets();
         renderTable();
