@@ -445,10 +445,10 @@
     </div>
   </div>
 
-<script type="module">
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    import { getDatabase, ref as dbRef, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref as dbRef, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     if (typeof ChartDataLabels !== 'undefined') {
@@ -458,7 +458,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
       authDomain: "outsourcemfg-59ca8.firebaseapp.com",
-      databaseURL: "https://outsourcemfg-59ca8-default-rtdb.firebaseio.com", // 確保這裡有填入您的 Realtime Database URL
+      databaseURL: "https://outsourcemfg-59ca8-default-rtdb.firebaseio.com",
       projectId: "outsourcemfg-59ca8",
       storageBucket: "outsourcemfg-59ca8.firebasestorage.app",
       messagingSenderId: "408387263887",
@@ -467,19 +467,20 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const rtdb = getDatabase(app); // 初始化 Realtime Database
+    const rtdb = getDatabase(app);
     const auth = getAuth(app);
     const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
+    const RTDB_REF = dbRef(rtdb, "outsourcing_tracker/main_data");
 
     let isInitialized = false;
 
-    // 1. 將這段搬移函式放在這裡（與其他全域函式並列）
+    // 一次性從 Firestore 搬移資料到 Realtime Database 的工具函式
     window.migrateFirestoreToRTDB = async function() {
       try {
         const docSnap = await getDoc(DOC_REF);
         if (docSnap.exists()) {
           const cloudData = docSnap.data();
-          await set(dbRef(rtdb, "outsourcing_tracker/main_data"), cloudData);
+          await set(RTDB_REF, cloudData);
           alert("成功將 Firestore 資料轉移到 Realtime Database！");
         } else {
           alert("Firestore 中找不到 main_data 資料。");
@@ -501,10 +502,7 @@
         
         if (!isInitialized) {
           isInitialized = true;
-          
-          // 💡 【執行方式選擇】
-          // 如果您希望每次登入時自動執行一次搬移，可以把下面這行取消註解：
-          // migrateFirestoreToRTDB();
+          initRealtimeSync(); // 登入後開始監聽 Realtime Database
         }
       } else {
         loginModal.style.display = 'flex';
@@ -512,7 +510,6 @@
         isInitialized = false;
       }
     });
-  </script>
 
     window.handleFirebaseLogin = function() {
       const email = document.getElementById('firebase-email').value.trim();
@@ -560,7 +557,7 @@
       const statusEl = document.getElementById('sync-status');
       const nowStr = new Date().toLocaleString('zh-TW');
       statusEl.innerText = "☁️ 同步至 Realtime DB...";
-      set(DB_REF, {
+      set(RTDB_REF, {
         workbook: workbook,
         activeSheetId: activeSheetId,
         updatedAt: nowStr
@@ -577,17 +574,16 @@
       const statusEl = document.getElementById('sync-status');
       statusEl.innerText = "☁ 連結 Realtime DB 中...";
       
-      onValue(DB_REF, (snapshot) => {
+      onValue(RTDB_REF, (snapshot) => {
         const cloudData = snapshot.val();
         if (cloudData && cloudData.workbook) {
-          // 嚴格保護：只有當雲端確實存在工作表與資料時才進行載入
           workbook = cloudData.workbook;
           activeSheetId = cloudData.activeSheetId || workbook[0].id;
           const updatedAt = cloudData.updatedAt || new Date().toLocaleString('zh-TW');
           document.getElementById('last-updated-time').innerText = `最後更新：${updatedAt}`;
           statusEl.innerText = "✅ 即時同步連線中";
         } else {
-          statusEl.innerText = "⚠️ 雲端尚無資料，維持目前空白";
+          statusEl.innerText = "⚠️ 雲端尚無資料，若有需要請執行搬移";
         }
         renderSheets();
         renderTable();
