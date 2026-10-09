@@ -445,9 +445,10 @@
     </div>
   </div>
 
-  <script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getDatabase, ref as dbRef, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     if (typeof ChartDataLabels !== 'undefined') {
@@ -457,7 +458,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyCBjRDPe9vxXh_vVcqi2Oj4_GQLHycHEso",
       authDomain: "outsourcemfg-59ca8.firebaseapp.com",
-      databaseURL: "https://outsourcemfg-59ca8-default-rtdb.firebaseio.com",
+      databaseURL: "https://outsourcemfg-59ca8-default-rtdb.firebaseio.com", // 確保這裡有填入您的 Realtime Database URL
       projectId: "outsourcemfg-59ca8",
       storageBucket: "outsourcemfg-59ca8.firebasestorage.app",
       messagingSenderId: "408387263887",
@@ -465,11 +466,29 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db = getFirestore(app);
+    const rtdb = getDatabase(app); // 初始化 Realtime Database
     const auth = getAuth(app);
-    const DB_REF = ref(db, "outsourcing_tracker/main_data");
+    const DOC_REF = doc(db, "outsourcing_tracker", "main_data");
 
     let isInitialized = false;
+
+    // 1. 將這段搬移函式放在這裡（與其他全域函式並列）
+    window.migrateFirestoreToRTDB = async function() {
+      try {
+        const docSnap = await getDoc(DOC_REF);
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          await set(dbRef(rtdb, "outsourcing_tracker/main_data"), cloudData);
+          alert("成功將 Firestore 資料轉移到 Realtime Database！");
+        } else {
+          alert("Firestore 中找不到 main_data 資料。");
+        }
+      } catch (e) {
+        console.error("轉移失敗：", e);
+        alert("轉移失敗：" + e.message);
+      }
+    };
 
     onAuthStateChanged(auth, (user) => {
       const loginModal = document.getElementById('login-modal');
@@ -478,11 +497,14 @@
       if (user) {
         loginModal.style.display = 'none';
         mainContainer.style.setProperty('display', 'flex', 'important');
-        document.getElementById('user-status-text',).innerText = `已登入：${user.email}`;
+        document.getElementById('user-status-text').innerText = `已登入：${user.email}`;
         
         if (!isInitialized) {
           isInitialized = true;
-          initRealtimeSync();
+          
+          // 💡 【執行方式選擇】
+          // 如果您希望每次登入時自動執行一次搬移，可以把下面這行取消註解：
+          // migrateFirestoreToRTDB();
         }
       } else {
         loginModal.style.display = 'flex';
@@ -490,6 +512,7 @@
         isInitialized = false;
       }
     });
+  </script>
 
     window.handleFirebaseLogin = function() {
       const email = document.getElementById('firebase-email').value.trim();
