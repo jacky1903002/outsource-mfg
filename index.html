@@ -385,8 +385,8 @@
       </div>
       
       <div class="chart-tabs-bar">
-        <button class="chart-tab-btn active" onclick="switchChartPage('page-vendor-count', this)">1. FAI合格已派工-件數</button>
-        <button class="chart-tab-btn" onclick="switchChartPage('page-vendor-pcs', this)">2. FAI合格已派工-已交貨PCS</button>
+        <button class="chart-tab-btn active" onclick="switchChartPage('page-vendor-count', this)">1. 合格廠商已派工-件數</button>
+        <button class="chart-tab-btn" onclick="switchChartPage('page-vendor-pcs', this)">2. 合格廠商已派工-已交貨PCS</button>
         <button class="chart-tab-btn" onclick="switchChartPage('page-fai-pending', this)">3. FAI待驗證-件數</button>
         <button class="chart-tab-btn" onclick="switchChartPage('page-daily-count', this)">4. FAI已派工逐日累積件數</button>
         <button class="chart-tab-btn" onclick="switchChartPage('page-daily-pcs', this)">5. FAI已派工逐日累積PCS數</button>
@@ -395,12 +395,12 @@
 
       <div id="page-vendor-count" class="chart-page active">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorCountChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. FAI合格已派工-件數')">🖼 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorCountChart', '1. 合格廠商已派工-件數')">🖼 匯出 PNG</button>
       </div>
 
       <div id="page-vendor-pcs" class="chart-page">
         <div style="flex: 1; min-height: 0;"><canvas id="vendorPcsChart"></canvas></div>
-        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorPcsChart', '2. FAI合格已派工-已交貨PCS')">🖼️ 匯出 PNG</button>
+        <button class="btn btn-primary" style="margin-top: 8px; align-self: flex-end;" onclick="exportChartImage('vendorPcsChart', '2. 合格廠商已派工-已交貨PCS')">🖼️ 匯出 PNG</button>
       </div>
 
       <div id="page-fai-pending" class="chart-page">
@@ -478,12 +478,14 @@
       { key: "no", label: "No." },
       { key: "itemNo", label: "品號" },
       { key: "itemName", label: "品名" },
-      { key: "vendor", label: "廠商" },
+      { key: "vendor", label: "合格廠商" },
+      { key: "allVendor", label: "所有廠商" },
       { key: "faiAssignDate", label: "FAI派工日期" },
       { key: "faiPassDate", label: "FAI合格日期" },
       { key: "deliveredPcs", label: "已交貨(PCS)" },
       { key: "faiPendingVendor", label: "FAI 待驗證廠商" },
-      { key: "status", label: "發單/追蹤狀況" }
+      { key: "status", label: "發單/追蹤狀況" },
+      { key: "remark", label: "備註" }
     ];
 
     let workbook = [
@@ -493,7 +495,6 @@
     let activeSheetId = "sheet_roadmap";
     let chartInstances = {};
 
-    // 將初始化與搬移指令掛載到 window，以便在 Console 直接執行
     window.initRTDBDefault = async function() {
       try {
         await set(RTDB_REF, {
@@ -1074,8 +1075,8 @@
         Object.values(chartInstances).forEach(chart => { if (chart) { chart.resize(); chart.update(); } });
 
         const chartsConfig = [
-          { id: 'vendorCountChart', title: '1. FAI合格已派工-件數' },
-          { id: 'vendorPcsChart', title: '2. FAI合格已派工-已交貨PCS' },
+          { id: 'vendorCountChart', title: '1. 合格廠商已派工-件數' },
+          { id: 'vendorPcsChart', title: '2. 合格廠商已派工-已交貨PCS' },
           { id: 'faiPendingChart', title: '3. FAI待驗證-件數' },
           { id: 'dailyCountChart', title: '4. FAI已派工逐日累積件數' },
           { id: 'dailyPcsChart', title: '5. FAI已派工逐日累積PCS數' },
