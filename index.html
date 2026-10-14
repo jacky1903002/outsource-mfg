@@ -506,7 +506,7 @@
           updatedAt: new Date().toLocaleString('zh-TW')
         });
         console.log("Realtime Database 初始化成功！");
-        alert("Realtime Database 初始化成功！");
+        alert("Realtime Database 初始化成功！，請重新整理頁面。");
       } catch (e) {
         console.error("初始化失敗：", e);
         alert("初始化失敗：" + e.message);
@@ -598,6 +598,14 @@
         if (cloudData && cloudData.workbook) {
           workbook = cloudData.workbook;
           activeSheetId = cloudData.activeSheetId || workbook[0].id;
+          
+          // 強制對齊預設欄位結構，若雲端欄位名稱過舊則自動更新欄位定義
+          workbook.forEach(sheet => {
+            if (!sheet.columns || sheet.columns.some(c => c.key === 'vendor' && c.label === '廠商')) {
+              sheet.columns = JSON.parse(JSON.stringify(defaultColumns));
+            }
+          });
+
           const updatedAt = cloudData.updatedAt || new Date().toLocaleString('zh-TW');
           document.getElementById('last-updated-time').innerText = `最後更新：${updatedAt}`;
           statusEl.innerText = "✅ 即時同步連線中";
